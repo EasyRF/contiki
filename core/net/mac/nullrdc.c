@@ -195,8 +195,8 @@ send_one_packet(mac_callback_t sent, void *ptr)
               }
             }
           } else {
-	    PRINTF("nullrdc tx noack\n");
-	  }
+      PRINTF("nullrdc tx noack\n");
+    }
         }
         break;
       case RADIO_TX_COLLISION:
@@ -265,16 +265,16 @@ send_list(mac_callback_t sent, void *ptr, struct rdc_buf_list *buf_list)
 static void
 packet_input(void)
 {
+#if NULLRDC_802154_AUTOACK
   int original_datalen;
   uint8_t *original_dataptr;
 
   original_datalen = packetbuf_datalen();
   original_dataptr = packetbuf_dataptr();
 
-#if NULLRDC_802154_AUTOACK
   if(packetbuf_datalen() == ACK_LEN) {
     /* Ignore ack packets */
-    PRINTF("nullrdc: ignored ack\n"); 
+    PRINTF("nullrdc: ignored ack\n");
   } else
 #endif /* NULLRDC_802154_AUTOACK */
   if(NETSTACK_FRAMER.parse() < 0) {
@@ -303,7 +303,7 @@ packet_input(void)
 #endif /* RDC_WITH_DUPLICATE_DETECTION */
 #endif /* NULLRDC_802154_AUTOACK */
 
-/* TODO We may want to acknowledge only authentic frames */ 
+/* TODO We may want to acknowledge only authentic frames */
 #if NULLRDC_SEND_802154_ACK
     {
       frame802154_t info154;
