@@ -1,0 +1,219 @@
+# SAMR21 port Makefile
+
+# Set build type
+SMALL=1
+DEBUG=0
+
+# Default to a optimized small build
+ifndef SMALL
+SMALL=1
+DEBUG=0
+endif
+
+# Toolchain binaries
+CC   = arm-none-eabi-gcc
+CPP  = arm-none-eabi-cpp
+AS   = arm-none-eabi-as
+LD   = arm-none-eabi-gcc
+AR   = arm-none-eabi-ar
+OC   = arm-none-eabi-objcopy
+SIZE = arm-none-eabi-size
+GDB  = arm-none-eabi-gdb
+
+# Set default start address if not defined
+ifndef FLASH_START_ADDRESS
+  FLASH_START_ADDRESS = 0x08010000
+  FLASH_SIZE = 192K
+endif
+
+# Add FLASH_START_ADDRESS as preprocessor definition
+CFLAGS += -DFLASH_START_ADDRESS=$(FLASH_START_ADDRESS) -DUIP_CONF_IPV6=1
+
+# C compiler flags
+CFLAGS += -mthumb -mcpu=cortex-m0plus -mlong-calls -fno-builtin -Wall -std=gnu99 -fdata-sections -ffunction-sections -fshort-enums -fno-strict-aliasing
+
+# CPU specific definitions
+CFLAGS += -D__SAMR21G18A__
+CFLAGS += -DARM_MATH_CM0=true
+CFLAGS += -DUSART_CALLBACK_MODE=false
+CFLAGS += -DSPI_CALLBACK_MODE=false
+CFLAGS += -DRTC_COUNT_ASYNC=true
+CFLAGS += -DCYCLE_MODE
+CFLAGS += -DEXTINT_CALLBACK_MODE=true
+CFLAGS += -DPHY_AT86RF233
+CFLAGS += -DSAL_TYPE=AT86RF2xx
+CFLAGS += -DENABLE_TRX_SRAM
+
+# Compile flags for optimization or debug
+ifeq ($(SMALL),1)
+CFLAGS += -Os
+#CFLAGS += -Werror
+else
+ifeq ($(DEBUG),1)
+#CFLAGS += -DDEBUG
+CFLAGS += -O0 -gstabs+
+endif
+endif
+
+# Assembler flags
+ASFLAGS += -mthumb -mcpu=cortex-m0plus
+
+# Linker flags
+LDFLAGS += -Wl,-Map=$@.map,--cref,--gc-sections -mthumb -mcpu=cortex-m0plus
+
+# Object-copy flags
+OCFLAGS += -O binary --gap-fill 0xff
+
+### Cleanup files
+CLEAN += symbols.c symbols.h *.d *.elf *.ld *.dfu *.signed SignFirmware.class
+
+### CPU-dependent directories
+CONTIKI_CPU_DIRS  = .
+
+# Define ASF root directory
+ASF_ROOT = $(CONTIKI)/thirdparty/atmel/xdk-asf-3.19.0
+
+# Thirdparty CMSIS
+CONTIKI_CPU_DIRS += $(ASF_ROOT)/thirdparty/CMSIS/Include
+
+# Define ASF directories and source files
+# SAM0
+## Drivers
+ASF_SAM0_DRIVERS = $(ASF_ROOT)/sam0/drivers
+### System
+ASF_CPU_SYSTEM = $(ASF_SAM0_DRIVERS)/system
+CONTIKI_CPU_DIRS += $(ASF_CPU_SYSTEM) $(ASF_CPU_SYSTEM)/clock $(ASF_CPU_SYSTEM)/clock/clock_samd21_r21 $(ASF_CPU_SYSTEM)/pinmux $(ASF_CPU_SYSTEM)/interrupt $(ASF_CPU_SYSTEM)/interrupt/system_interrupt_samr21
+CONTIKI_CPU_SOURCEFILES += system.c system_interrupt.c clock.c gclk.c pinmux.c
+### Port
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/port
+CONTIKI_CPU_SOURCEFILES += port.c
+### Sercom
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/sercom
+CONTIKI_CPU_SOURCEFILES += sercom.c sercom_interrupt.c
+#### Sercom usart
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/sercom/usart
+CONTIKI_CPU_SOURCEFILES += usart.c
+#### Sercom SPI
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/sercom/spi
+CONTIKI_CPU_SOURCEFILES += spi.c
+### RTC count
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/rtc
+CONTIKI_CPU_SOURCEFILES += rtc_count.c rtc_count_interrupt.c
+### WDT
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/wdt
+CONTIKI_CPU_SOURCEFILES += wdt.c
+### EXTINT
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/extint
+CONTIKI_CPU_SOURCEFILES += extint.c extint_callback.c
+### NVM
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/nvm
+CONTIKI_CPU_SOURCEFILES += nvm.c
+## Utils
+ASF_CPU_UTILS = $(ASF_ROOT)/sam0/utils
+CONTIKI_CPU_DIRS += $(ASF_CPU_UTILS) $(ASF_CPU_UTILS)/preprocessor $(ASF_CPU_UTILS)/header_files
+### CMSIS
+CONTIKI_CPU_DIRS += $(ASF_CPU_UTILS)/cmsis/samr21/include $(ASF_CPU_UTILS)/cmsis/samr21/source $(ASF_CPU_UTILS)/cmsis/samr21/source/gcc
+CONTIKI_CPU_SOURCEFILES += system_samr21.c startup_samr21.c
+
+# Common
+## Utils
+### Interrupt
+CONTIKI_CPU_DIRS += $(ASF_ROOT)/common/utils $(ASF_ROOT)/common/utils/interrupt
+CONTIKI_CPU_SOURCEFILES += interrupt_sam_nvic.c
+
+# Common2
+## Services
+### Delay
+CONTIKI_CPU_DIRS += $(ASF_ROOT)/common2/services/delay $(ASF_ROOT)/common2/services/delay/sam0
+CONTIKI_CPU_SOURCEFILES += cycle_counter.c
+
+# AT86RF233 source files
+ASF_RF = $(ASF_ROOT)/thirdparty/wireless
+CONTIKI_CPU_DIRS += $(ASF_RF)/services/trx_access
+CONTIKI_CPU_DIRS += $(ASF_RF)/services/sal/at86rf2xx/src $(ASF_RF)/services/sal/inc
+CONTIKI_CPU_DIRS += $(ASF_RF)/avr2130_lwmesh/source/phy/at86rf233/src $(ASF_RF)/avr2130_lwmesh/source/phy/at86rf233/inc
+CONTIKI_CPU_SOURCEFILES += trx_access.c
+CONTIKI_CPU_SOURCEFILES += phy.c
+CONTIKI_CPU_SOURCEFILES += sal.c
+
+# ASF Contiki glue files
+CONTIKI_CPU_SOURCEFILES += log.c clock-arch.c watchdog-arch.c rtimer-arch.c dbg-arch.c samr21-flash.c samr21-rf.c random-arch.c
+
+### Use the existing debug I/O in cpu/arm/common
+CONTIKI_CPU_DIRS += ../arm/common/dbg-io
+DEBUG_IO_SOURCEFILES += dbg-printf.c dbg-snprintf.c dbg-sprintf.c strformat.c
+
+# Add files to contiki sourcefiles list
+CONTIKI_SOURCEFILES += $(CONTIKI_CPU_SOURCEFILES) $(DEBUG_IO_SOURCEFILES)
+
+############################################
+# Custom linking
+############################################
+
+CUSTOM_RULE_LINK=yes
+
+# Set default start address if not defined
+ifndef FLASH_START_ADDRESS
+  FLASH_START_ADDRESS = 0x08010000
+  FLASH_SIZE = 192K
+endif
+
+# RAM addresses for linker script
+SRAM_START_ADDRESS = 0x20000000
+SRAM_SIZE = 0x00010000
+
+# Rule for generating the linker script
+.PHONY: $(CONTIKI_CPU)/SAMR21G.lds
+SAMR21G.ld: $(CONTIKI_CPU)/SAMR21G.lds
+	$(CPP) -DFLASH_START_ADDRESS=$(FLASH_START_ADDRESS) -DFLASH_SIZE=$(FLASH_SIZE) -DSRAM_START_ADDRESS=$(SRAM_START_ADDRESS) -DSRAM_SIZE=$(SRAM_SIZE) -DTIME=$(TIME) -I. -P -E $< -o $@
+
+# Rule for linking
+%-firmware.$(TARGET): SAMR21G.ld %.co $(PROJECT_OBJECTFILES) $(PROJECT_LIBRARIES) contiki-$(TARGET).a
+	$(TRACE_LD)
+	$(LD) $(LDFLAGS) -T SAMR21G.ld ${filter-out %.ld %.a,$^} contiki-$(TARGET).a -lc -lnosys -o $@
+	$(SIZE) $@
+
+%.bin: %.$(TARGET)
+	$(OC) $(OCFLAGS) $< $@
+
+############################################
+# Firmware signing
+############################################
+
+# The one and only firmware key
+FIRMWARE_KEY = 000102030405060708090a0b0c0d0e0f
+
+# Timestamp is used for versioning the firmware
+TIME=$(shell date +%s)
+
+# In windows, Java classpath delimiter is different
+CP_DELIMITER=:
+ifeq ($(HOST_OS),Windows)
+	CP_DELIMITER=;
+endif
+
+# Rule for building the java application for signing the firmware
+SignFirmware.class: $(THSQ)/tools/java/SignFirmware.java
+	@cp $(THSQ)/tools/java/SignFirmware.java .
+	@javac -cp ".$(CP_DELIMITER)$(THSQ)/tools/java/lib/bcprov-jdk15on-147.jar" SignFirmware.java
+	@rm SignFirmware.java
+
+# Rule for building signed upgradeable firmware
+%.signed: %.bin SignFirmware.class
+	@java -cp ".$(CP_DELIMITER)$(THSQ)/tools/java/lib/bcprov-jdk15on-147.jar" SignFirmware ${filter-out SignFirmware.class,$^} $@ $(FIRMWARE_KEY) $(TIME)
+
+############################################
+# Programming targets (openocd and/or gdb)
+############################################
+
+OPENOCD_PROG  = openocd
+OPENOCD_BOARD = board/atmel_samd21_xplained_pro.cfg
+
+%.ocd-upload: %.bin
+	$(OPENOCD_PROG) -f $(OPENOCD_BOARD) -c init -c "reset halt;sleep 500; flash probe 0;flash write_bank 0 $< 0;reset halt;resume;sleep 500;exit"
+
+%.elf: %.$(TARGET)
+	cp $< $<.elf
+
+%.gdb-upload: %.$(TARGET)
+	$(GDB) -ex "target remote localhost:3333" -ex "monitor reset halt" -ex "load" -ex "monitor reset" -ex "detach" -ex "quit" $<

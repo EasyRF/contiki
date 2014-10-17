@@ -1,0 +1,8 @@
+#ifndef CONF_BOARD_H
+#define CONF_BOARD_H
+
+#define CONF_BOARD_AT86RFX
+
+#define AT86RFX_SPI_BAUDRATE		 5000000UL
+
+#endif // CONF_BOARD_H
