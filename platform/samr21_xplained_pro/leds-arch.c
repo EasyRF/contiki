@@ -29,7 +29,7 @@ void
 leds_arch_set(unsigned char new_led_status)
 {
   led_status = new_led_status;
-  if (led_status & LED1_GREEN) {
+  if (led_status & LEDS_GREEN) {
     port_pin_set_output_level(LED_0_PIN, LED_0_ACTIVE);
   } else {
     port_pin_set_output_level(LED_0_PIN, LED_0_INACTIVE);
