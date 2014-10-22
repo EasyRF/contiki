@@ -43,6 +43,7 @@ CFLAGS += -DEXTINT_CALLBACK_MODE=true
 CFLAGS += -DPHY_AT86RF233
 CFLAGS += -DSAL_TYPE=AT86RF2xx
 CFLAGS += -DENABLE_TRX_SRAM
+CFLAGS += -DUDD_ENABLE
 
 # Compile flags for optimization or debug
 ifeq ($(SMALL),1)
@@ -68,7 +69,7 @@ OCFLAGS += -O binary --gap-fill 0xff
 CLEAN += symbols.c symbols.h *.d *.elf *.ld *.dfu *.signed SignFirmware.class
 
 ### CPU-dependent directories
-CONTIKI_CPU_DIRS  = .
+CONTIKI_CPU_DIRS  = . dev
 
 # Define ASF root directory
 ASF_ROOT = $(CONTIKI)/thirdparty/atmel/xdk-asf-3.19.0
@@ -108,6 +109,10 @@ CONTIKI_CPU_SOURCEFILES += extint.c extint_callback.c
 ### NVM
 CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/nvm
 CONTIKI_CPU_SOURCEFILES += nvm.c
+### USB
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/usb
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/usb/stack_interface
+CONTIKI_CPU_SOURCEFILES += usb.c usb_device_udd.c usb_dual.c
 ## Utils
 ASF_CPU_UTILS = $(ASF_ROOT)/sam0/utils
 CONTIKI_CPU_DIRS += $(ASF_CPU_UTILS) $(ASF_CPU_UTILS)/preprocessor $(ASF_CPU_UTILS)/header_files
@@ -120,6 +125,17 @@ CONTIKI_CPU_SOURCEFILES += system_samr21.c startup_samr21.c
 ### Interrupt
 CONTIKI_CPU_DIRS += $(ASF_ROOT)/common/utils $(ASF_ROOT)/common/utils/interrupt
 CONTIKI_CPU_SOURCEFILES += interrupt_sam_nvic.c
+## Services
+### Sleepmgr
+CONTIKI_CPU_DIRS += $(ASF_ROOT)/common/services/sleepmgr
+CONTIKI_CPU_DIRS += $(ASF_ROOT)/common/services/sleepmgr/samd
+CONTIKI_CPU_SOURCEFILES += sleepmgr.c
+### USB
+CONTIKI_CPU_DIRS += $(ASF_ROOT)/common/services/usb/
+CONTIKI_CPU_DIRS += $(ASF_ROOT)/common/services/usb/class/cdc
+CONTIKI_CPU_DIRS += $(ASF_ROOT)/common/services/usb/class/cdc/device
+CONTIKI_CPU_DIRS += $(ASF_ROOT)/common/services/usb/udc
+CONTIKI_CPU_SOURCEFILES += udi_cdc.c udi_cdc_desc.c udc.c
 
 # Common2
 ## Services
@@ -137,7 +153,7 @@ CONTIKI_CPU_SOURCEFILES += phy.c
 CONTIKI_CPU_SOURCEFILES += sal.c
 
 # ASF Contiki glue files
-CONTIKI_CPU_SOURCEFILES += log.c clock-arch.c watchdog-arch.c rtimer-arch.c dbg-arch.c samr21-flash.c samr21-rf.c random-arch.c
+CONTIKI_CPU_SOURCEFILES += log.c clock-arch.c watchdog-arch.c rtimer-arch.c random-arch.c samr21-rf.c # samr21-flash.c
 
 ### Use the existing debug I/O in cpu/arm/common
 CONTIKI_CPU_DIRS += ../arm/common/dbg-io

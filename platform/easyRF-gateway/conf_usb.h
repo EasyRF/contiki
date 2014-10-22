@@ -87,6 +87,7 @@
 #endif
 //@}
 
+
 /**
  * USB Interface Configuration
  * @{

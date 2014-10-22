@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (c) 2012-2013, Thingsquare, http://www.thingsquare.com/.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -27,21 +26,13 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-/**
- * \addtogroup samr21-char-io
- * @{
  *
- * \file
- * This file is here because DBG I/O expects it to be. It just includes
- * our own dbg.h which has a non-misleading name and which also adheres
- * to Contiki's naming convention
  */
-#ifndef DEBUG_UART_H_
-#define DEBUG_UART_H_
 
-#include "dbg-arch.h"
+#ifndef ENC28J60_IP64_DRIVER_H
+#define ENC28J60_IP64_DRIVER_H
 
-#endif /* DEBUG_UART_H_ */
+#include "ip64-driver.h"
+extern const struct ip64_driver enc28j60_ip64_driver;
 
-/** @} */
+#endif /* ENC28J60_IP64_DRIVER_H */

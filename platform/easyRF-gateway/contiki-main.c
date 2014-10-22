@@ -3,7 +3,6 @@
 #include "contiki.h"
 #include "dev/leds.h"
 #include "dev/watchdog.h"
-#include "dev/button-sensor.h"
 #include "dev/serial-line.h"
 #include "dev/slip.h"
 #include "lib/random.h"
@@ -12,19 +11,17 @@
 #include "net/ip/tcpip.h"
 #include "net/ip/uip.h"
 #include "net/mac/frame802154.h"
+#include "lib/sensors.h"
 #include "log.h"
 #include "dbg-arch.h"
 #include "samr21-rf.h"
-#include "dev/button-sensor.h"
-
 #include <stdio.h>
 
 
-#define BOARD_STRING  "SAMR21 Xplained Pro"
+#define BOARD_STRING  BOARD_NAME
 
 
-SENSORS(&button_sensor);
-
+SENSORS(0);
 
 /*---------------------------------------------------------------------------*/
 static void

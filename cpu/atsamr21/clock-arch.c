@@ -40,10 +40,11 @@ void
 clock_init(void)
 {
   irq_initialize_vectors();
+  cpu_irq_enable();
+  sleepmgr_init();
   system_init();
   delay_init();
   SysTick_Config(system_cpu_clock_get_hz() / CLOCK_SECOND - 1UL);
-  cpu_irq_enable();
 }
 /*---------------------------------------------------------------------------*/
 clock_time_t
