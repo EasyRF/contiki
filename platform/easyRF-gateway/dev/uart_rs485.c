@@ -9,18 +9,26 @@ static int
 open(int32_t baudrate, uart_rx_char_callback char_cb, uart_rx_frame_callback frame_cb)
 {
   struct usart_config config_usart;
+  struct port_config pin_conf;
+
   usart_get_config_defaults(&config_usart);
 
   config_usart.baudrate    = baudrate;
-  config_usart.mux_setting = RS232_SERCOM_MUX_SETTING;
-  config_usart.pinmux_pad0 = RS232_SERCOM_PINMUX_PAD0;
-  config_usart.pinmux_pad1 = RS232_SERCOM_PINMUX_PAD1;
-  config_usart.pinmux_pad2 = RS232_SERCOM_PINMUX_PAD2;
-  config_usart.pinmux_pad3 = RS232_SERCOM_PINMUX_PAD3;
+  config_usart.mux_setting = RS485_SERCOM_MUX_SETTING;
+  config_usart.pinmux_pad0 = RS485_SERCOM_PINMUX_PAD0;
+  config_usart.pinmux_pad1 = RS485_SERCOM_PINMUX_PAD1;
+  config_usart.pinmux_pad2 = RS485_SERCOM_PINMUX_PAD2;
+  config_usart.pinmux_pad3 = RS485_SERCOM_PINMUX_PAD3;
 
-  while (usart_init(&usart_instance, RS232_MODULE, &config_usart) != STATUS_OK) {}
+  while (usart_init(&usart_instance, RS485_MODULE, &config_usart) != STATUS_OK) {}
 
   usart_enable(&usart_instance);
+
+
+  port_get_config_defaults(&pin_conf);
+  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
+  port_pin_set_config(RS485_TXE, &pin_conf);
+  port_pin_set_output_level(RS485_TXE, false);
 
   return 1;
 }
@@ -35,7 +43,9 @@ close(void)
 static int
 write_byte(const unsigned char b)
 {
+  port_pin_set_output_level(RS485_TXE, true);
   if (usart_write_wait(&usart_instance, b) == STATUS_OK) {
+    port_pin_set_output_level(RS485_TXE, false);
     return 1;
   } else {
     return -1;
@@ -45,7 +55,9 @@ write_byte(const unsigned char b)
 static int
 write_buffer(const unsigned char * buffer, uint8_t len)
 {
+  port_pin_set_output_level(RS485_TXE, true);
   if (usart_write_buffer_wait(&usart_instance, buffer, len) == STATUS_OK) {
+    port_pin_set_output_level(RS485_TXE, false);
     return len;
   } else {
     return -1;
@@ -58,7 +70,7 @@ set_receive_buffer(unsigned char * buffer, uint8_t len)
   /* TODO */
 }
 /*---------------------------------------------------------------------------*/
-const struct uart_driver uart_rs232 =
+const struct uart_driver uart_rs485 =
 {
   open,
   close,
@@ -66,3 +78,4 @@ const struct uart_driver uart_rs232 =
   write_buffer,
   set_receive_buffer
 };
+

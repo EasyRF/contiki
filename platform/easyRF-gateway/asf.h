@@ -117,4 +117,7 @@
 #include <udc.h>
 #include <udd.h>
 
+// From module: Common files for AT25DFx SerialFlash drivers
+#include <at25dfx.h>
+
 #endif // ASF_H

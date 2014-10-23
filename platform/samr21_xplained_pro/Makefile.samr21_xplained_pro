@@ -11,7 +11,7 @@ CONTIKI_TARGET_DIRS  = . dev
 # Add platform specific definition for ASF
 CFLAGS += -DBOARD=SAMR21_XPLAINED_PRO
 
-# ASF board directories
+# ASF directories
 CONTIKI_TARGET_DIRS += $(ASF_ROOT)/common/boards $(ASF_ROOT)/sam0/boards
 
 # Add generic contiki files

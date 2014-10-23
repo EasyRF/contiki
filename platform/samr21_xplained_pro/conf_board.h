@@ -7,4 +7,6 @@
 
 #define AT86RFX_SPI_BAUDRATE		 5000000UL
 
+
+
 #endif // CONF_BOARD_H

@@ -65,7 +65,13 @@ void
 dbg_init()
 {
   /* No receive callback at this point */
-  uart->init(115200, NULL, NULL);
+  uart->open(115200, NULL, NULL);
+}
+/*---------------------------------------------------------------------------*/
+void
+dbg_uninit(void)
+{
+  uart->close();
 }
 /*---------------------------------------------------------------------------*/
 #undef puts

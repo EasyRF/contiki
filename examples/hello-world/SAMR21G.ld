@@ -3,7 +3,7 @@ OUTPUT_ARCH(arm)
 SEARCH_DIR(.)
 MEMORY
 {
-  rom (rx) : ORIGIN = 0x00000000, LENGTH = 0x00040000
+  rom (rx) : ORIGIN = 0x00010000, LENGTH = 192K
   ram (rwx) : ORIGIN = 0x20000000, LENGTH = 0x00008000
 }
 ENTRY(Reset_Handler)

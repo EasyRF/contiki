@@ -9,8 +9,11 @@ typedef int (* uart_rx_frame_callback)(void);
 
 struct uart_driver {
 
-  /** \brief Initialises the UART controller, configures I/O control and interrupts */
-  int (* init)(int32_t baudrate, uart_rx_char_callback char_cb, uart_rx_frame_callback frame_cb);
+  /** \brief Enables the UART controller, configures I/O control and interrupts */
+  int (* open)(int32_t baudrate, uart_rx_char_callback char_cb, uart_rx_frame_callback frame_cb);
+
+  /** \brief Disables the UART */
+  int (* close)(void);
 
   /** \brief Sends a single character down the UART
    * \param b The character to transmit
@@ -21,11 +24,6 @@ struct uart_driver {
    * \param b The characters to transmit
    */
   int (* write_buffer)(const unsigned char  * buffer, uint8_t len);
-
-  /** \brief Toggles the usage of TXE for RS485
-   * \param input A integer value, non-zero to enable
-   */
-  void (* uart_use_txe)(int use);
 
   /** \brief Set the receive buffer for DMA transfer
    * \param input buffer

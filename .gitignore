@@ -85,7 +85,7 @@ contiki-cc2530dk.lib
 *.d81
 
 # SAMR21 build artifacts
-SAMR21G.ld
+atsamr21.ld
 
 #regression tests artifacts
 *.testlog

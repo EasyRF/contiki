@@ -49,8 +49,8 @@ SEARCH_DIR(.)
 /* Memory Spaces Definitions */
 MEMORY
 {
-  rom (rx)  : ORIGIN = 0x00000000, LENGTH = 0x00040000
-  ram (rwx) : ORIGIN = 0x20000000, LENGTH = 0x00008000
+  rom (rx)  : ORIGIN = FLASH_START_ADDRESS, LENGTH = FLASH_SIZE
+  ram (rwx) : ORIGIN = SRAM_START_ADDRESS, LENGTH = SRAM_SIZE
 }
 ENTRY(Reset_Handler)
 
@@ -60,11 +60,51 @@ STACK_SIZE = DEFINED(STACK_SIZE) ? STACK_SIZE : DEFINED(__stack_size__) ? __stac
 /* Section Definitions */
 SECTIONS
 {
-    .text :
-    {
+    .header : {
         . = ALIGN(4);
         _sfixed = .;
         KEEP(*(.vectors .vectors.*))
+        . = ALIGN(4);
+
+        _header = .;
+
+        /* This is the binary header.
+         * It starts with a signature: *EasyRF*
+         */
+        BYTE(0x2A)
+        BYTE(0x45)
+        BYTE(0x61)
+        BYTE(0x73)
+        BYTE(0x79)
+        BYTE(0x52)
+        BYTE(0x46)
+        BYTE(0x2A)
+
+        /* Next up is the version, which we take from the TIME
+        variable, which is set during the CPP pre-processing of this
+        file. */
+        LONG(TIME)
+
+        /* Then we have the header pointer, which should protect
+        against booting this firmware from the wrong location in
+        memory. We have defined _header = .; above, so we can use it
+        here. */
+        LONG(_header)
+
+        /* The _sfixed pointer points to the first byte of the vector
+        table. This is used by the loader to know where to start the
+        loaded firmware. */
+        LONG(_sfixed)
+
+        /* Finally, we have a pointer to the byte after the last byte
+        in the file. We compute this as the address of the .text
+        segment plus the length of the .text and .data segments. */
+        LONG(_efixed)
+    } > rom
+
+    .text :
+    {
+        . = ALIGN(4);
         *(.text .text.* .gnu.linkonce.t.*)
         *(.glue_7t) *(.glue_7)
         *(.rodata .rodata* .gnu.linkonce.r.*)

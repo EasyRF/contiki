@@ -38,6 +38,70 @@ void system_board_init(void);
 /** @} */
 
 
+/** \name Ethernet/SerialFlash/Display SPI Interface definitions
+ * @{
+ */
+
+#define ESD_SPI_MODULE                SERCOM3
+#define ESD_SPI_SERCOM_MUX_SETTING    SPI_SIGNAL_MUX_SETTING_E // TODO: Check this
+#define ESD_SPI_SERCOM_PINMUX_PAD0    PINMUX_PA22C_SERCOM3_PAD0
+#define ESD_SPI_SERCOM_PINMUX_PAD1    PINMUX_UNUSED
+#define ESD_SPI_SERCOM_PINMUX_PAD2    PINMUX_PA18D_SERCOM3_PAD2
+#define ESD_SPI_SERCOM_PINMUX_PAD3    PINMUX_PA19D_SERCOM3_PAD3
+
+#define ETHERNET_CS                   PIN_PA23
+#define SERIAL_FLASH_CS               PIN_PA27
+#define DISPLAY_CS                    PIN_PA28
+
+/** @} */
+
+
+/** \name RS-232 port definitions
+ * @{
+ */
+
+#define RS232_MODULE                SERCOM5
+#define RS232_SERCOM_MUX_SETTING    USART_RX_1_TX_0_XCK_1 // TODO: Check this
+#define RS232_SERCOM_PINMUX_PAD0    PINMUX_UNUSED
+#define RS232_SERCOM_PINMUX_PAD1    PINMUX_UNUSED
+#define RS232_SERCOM_PINMUX_PAD2    PINMUX_PB22D_SERCOM5_PAD2
+#define RS232_SERCOM_PINMUX_PAD3    PINMUX_PB23D_SERCOM5_PAD3
+
+/** @} */
+
+
+/** \name RS-485 port definitions
+ * @{
+ */
+
+#define RS485_MODULE                SERCOM1
+#define RS485_SERCOM_MUX_SETTING    USART_RX_1_TX_0_XCK_1 // TODO: Check this
+#define RS485_SERCOM_PINMUX_PAD0    PINMUX_PA00D_SERCOM1_PAD0
+#define RS485_SERCOM_PINMUX_PAD1    PINMUX_PA01D_SERCOM1_PAD1
+#define RS485_SERCOM_PINMUX_PAD2    PINMUX_UNUSED
+#define RS485_SERCOM_PINMUX_PAD3    PINMUX_UNUSED
+
+#define RS485_TXE                   PIN_PB03
+
+/** @} */
+
+
+/** \name Light/Color/Proximity Sensor, Pressure Sensor, Inertial/Movement/Magneto I2C Interface definitions
+ * @{
+ */
+
+#define SENSORS_I2C_MODULE                SERCOM2
+#define SENSORS_I2C_SERCOM_PINMUX_PAD0    PINMUX_PA08D_SERCOM2_PAD0
+#define SENSORS_I2C_SERCOM_PINMUX_PAD1    PINMUX_PA13C_SERCOM2_PAD1
+#define SENSORS_I2C_SERCOM_DMAC_ID_TX     SERCOM2_DMAC_ID_TX
+#define SENSORS_I2C_SERCOM_DMAC_ID_RX     SERCOM2_DMAC_ID_RX
+
+/** @} */
+
+
+/** \name 802.15.4 TRX Interface definitions
+ * @{
+ */
 
 #define RF_SPI_MODULE              SERCOM4
 #define RF_SPI_SERCOM_MUX_SETTING  SPI_SIGNAL_MUX_SETTING_E
@@ -53,10 +117,6 @@ void system_board_init(void);
 #define RF_IRQ_MUX              MUX_PB00A_EIC_EXTINT0
 #define RF_IRQ_PINMUX           PINMUX_PB00A_EIC_EXTINT0
 
-
-/** \name 802.15.4 TRX Interface definitions
- * @{
- */
 
 #define AT86RFX_SPI                  SERCOM4
 #define AT86RFX_RST_PIN              PIN_PB15

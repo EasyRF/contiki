@@ -73,6 +73,7 @@ dbg_init()
 {
 #if DBG_CONF_USB == 0
   struct usart_config config_usart;
+
   usart_get_config_defaults(&config_usart);
   config_usart.baudrate    = 115200;
   config_usart.mux_setting = EDBG_CDC_SERCOM_MUX_SETTING;
@@ -87,6 +88,12 @@ dbg_init()
 #else
   udc_start();
 #endif
+}
+/*---------------------------------------------------------------------------*/
+void
+dbg_uninit(void)
+{
+  usart_disable(&usart_instance);
 }
 /*---------------------------------------------------------------------------*/
 int

@@ -12,7 +12,7 @@
 
 struct flash_driver {
 
-  void (* open)(void);
+  int (* open)(void);
 
   void (* close)(void);
 
@@ -25,5 +25,7 @@ struct flash_driver {
 };
 
 unsigned short flash_crc16(const struct flash_driver * flash, unsigned long address, uint32_t len);
+
+#include "flash-conf.h"
 
 #endif /* __FLASH_H__ */

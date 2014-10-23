@@ -83,6 +83,7 @@ unsigned int dbg_send_bytes(const unsigned char *seq, unsigned int len);
 #endif
 
 void dbg_init();
+void dbg_uninit();
 
 #endif /* DBG_H_ */
 

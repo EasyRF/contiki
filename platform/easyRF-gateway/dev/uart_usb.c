@@ -4,10 +4,16 @@
 
 /*---------------------------------------------------------------------------*/
 static int
-init(int32_t baudrate, uart_rx_char_callback char_cb, uart_rx_frame_callback frame_cb)
+open(int32_t baudrate, uart_rx_char_callback char_cb, uart_rx_frame_callback frame_cb)
 {
   udc_start();
 
+  return 1;
+}
+/*---------------------------------------------------------------------------*/
+static int
+close(void)
+{
   return 1;
 }
 /*---------------------------------------------------------------------------*/
@@ -32,12 +38,6 @@ write_buffer(const unsigned char * buffer, uint8_t len)
 }
 /*---------------------------------------------------------------------------*/
 static void
-use_txe(int use)
-{
-  /* Not applicable for USB Virtual COM port */
-}
-/*---------------------------------------------------------------------------*/
-static void
 set_receive_buffer(unsigned char * buffer, uint8_t len)
 {
   /* TODO */
@@ -45,9 +45,9 @@ set_receive_buffer(unsigned char * buffer, uint8_t len)
 /*---------------------------------------------------------------------------*/
 const struct uart_driver uart_usb =
 {
-  init,
+  open,
+  close,
   write_byte,
   write_buffer,
-  use_txe,
   set_receive_buffer
 };

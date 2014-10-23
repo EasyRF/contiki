@@ -1,0 +1,24 @@
+#ifndef CONF_AT25DFX_H_INCLUDED
+#define CONF_AT25DFX_H_INCLUDED
+
+#include <board.h>
+#include "at25dfx.h"
+
+//! Select the SPI module AT25DFx is connected to
+#define AT25DFX_SPI                 ESD_SPI_MODULE
+
+/** AT25DFx device type */
+#define AT25DFX_MEM_TYPE            AT25DFX_321A
+
+#define AT25DFX_SPI_PINMUX_SETTING  ESD_SPI_SERCOM_MUX_SETTING
+#define AT25DFX_SPI_PINMUX_PAD0     ESD_SPI_SERCOM_PINMUX_PAD0
+#define AT25DFX_SPI_PINMUX_PAD1     ESD_SPI_SERCOM_PINMUX_PAD1
+#define AT25DFX_SPI_PINMUX_PAD2     ESD_SPI_SERCOM_PINMUX_PAD2
+#define AT25DFX_SPI_PINMUX_PAD3     ESD_SPI_SERCOM_PINMUX_PAD3
+
+#define AT25DFX_CS                  SERIAL_FLASH_CS
+
+//! SPI master speed in Hz.
+#define AT25DFX_CLOCK_SPEED         120000
+
+#endif  /* CONF_AT25DFX_H_INCLUDED */
