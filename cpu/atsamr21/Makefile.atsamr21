@@ -1,8 +1,8 @@
 # SAMR21 port Makefile
 
 # Set build type
-SMALL=0
-DEBUG=1
+SMALL=1
+DEBUG=0
 
 # Default to a optimized small build
 ifndef SMALL

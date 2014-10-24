@@ -124,7 +124,7 @@ typedef uint32_t uip_stats_t;
 #endif
 
 #ifndef DBG_CONF_USB
-#define DBG_CONF_USB                0 /**< All debugging over UART by default */
+#define DBG_CONF_USB                1 /**< All debugging over UART by default */
 #endif
 
 #ifndef SERIAL_LINE_CONF_UART

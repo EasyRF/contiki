@@ -84,6 +84,7 @@ main(void)
   process_init();
 
   watchdog_init();
+  watchdog_start();
 
   rtimer_init();
 
@@ -113,8 +114,6 @@ main(void)
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
   autostart_start(autostart_processes);
-
-  watchdog_start();
 
   process_start(&sensors_process, NULL);
 

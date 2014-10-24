@@ -34,6 +34,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "log.h"
+
+
 #define DEBUG 0
 #if DEBUG
 #define PRINTF(...) printf(__VA_ARGS__)
@@ -444,6 +447,8 @@ enc28j60_init(uint8_t *mac_addr)
   process_start(&enc_watchdog_process, NULL);
 
   reset();
+
+  INFO("initialized");
 
   initialized = 1;
 }

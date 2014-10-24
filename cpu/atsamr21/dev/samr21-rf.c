@@ -12,10 +12,11 @@
 #include "net/mac/frame802154.h"
 #include "samr21-rf.h"
 
-/* Override LOG_LEVEL */
-#undef LOG_LEVEL
-#define LOG_LEVEL LOG_LEVEL_INFO
 #include "log.h"
+
+#undef TRACE
+#define TRACE(...)
+
 
 
 #define PHY_STATUS_UNKNOWN            255
@@ -126,6 +127,8 @@ transmit(unsigned short transmit_len)
 
   /* PHY_DataReq expects the payload length in the first byte */
   PHY_DataReq(tx_buffer);
+
+  TRACE("transmitting %d bytes", transmit_len);
 
   /* Wait for tx result */
   while (tx_status == PHY_STATUS_UNKNOWN);
