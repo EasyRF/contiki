@@ -221,10 +221,13 @@ SignFirmware.class: $(THSQ)/tools/java/SignFirmware.java
 ############################################
 
 OPENOCD_PROG  = openocd
-OPENOCD_BOARD = board/atmel_samd21_xplained_pro.cfg
+
+ifndef OPENOCD_BOARD
+  OPENOCD_BOARD = board/atmel_samd21_xplained_pro.cfg
+endif
 
 %.ocd-upload: %.$(TARGET)
-	$(OPENOCD_PROG) -f $(OPENOCD_BOARD) -c init -c "reset halt;sleep 500; flash probe 0;flash write_image $<;reset halt;resume;sleep 500;exit"
+	$(OPENOCD_PROG) -f $(OPENOCD_BOARD) -c "init; targets; reset halt; sleep 500; flash probe 0; flash write_image $<; reset halt; resume; sleep 500; exit"
 
 %.elf: %.$(TARGET)
 	cp $< $<.elf

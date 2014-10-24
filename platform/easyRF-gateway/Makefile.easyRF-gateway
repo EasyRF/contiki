@@ -37,5 +37,8 @@ CLEAN += *.easyRF-gatway
 # Define the CPU directory
 CONTIKI_CPU = $(CONTIKI)/cpu/atsamr21
 
+# Define board file for openocd programming
+#OPENOCD_BOARD = $(CONTIKI)/platform/$(TARGET)/minimal_samr21_swd.cfg
+
 # Include the CPU Makefile
 include $(CONTIKI_CPU)/Makefile.atsamr21

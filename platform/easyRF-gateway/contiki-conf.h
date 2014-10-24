@@ -32,6 +32,22 @@
 typedef uint32_t clock_time_t;
 typedef uint32_t uip_stats_t;
 
+
+
+/** @} */
+/*---------------------------------------------------------------------------*/
+/**
+ * \name Serial Boot Loader Backdoor configuration
+ *
+ * Define white LED
+ * The RED, GREEN and BLUE led are already defined in /dev/leds.h
+ *
+ * @{
+ */
+
+#define LEDS_WHITE    8
+
+
 /** @} */
 /*---------------------------------------------------------------------------*/
 /**

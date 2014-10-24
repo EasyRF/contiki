@@ -1,4 +1,5 @@
 #include <asf.h>
+#include "dev/leds.h"
 #include "uart_usb.h"
 
 
@@ -7,6 +8,8 @@ static int
 open(int32_t baudrate, uart_rx_char_callback char_cb, uart_rx_frame_callback frame_cb)
 {
   udc_start();
+
+  leds_off(LEDS_WHITE);
 
   return 1;
 }

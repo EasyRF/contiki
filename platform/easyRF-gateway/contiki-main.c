@@ -63,9 +63,10 @@ int
 main(void)
 {
   clock_init();
-  dbg_init();
 
   leds_init();
+
+  dbg_init();
 
   process_init();
 
