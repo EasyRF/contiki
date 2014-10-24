@@ -44,8 +44,8 @@ leds_arch_set(unsigned char new_led_status)
 {
   led_status = new_led_status;
 
-  port_pin_set_output_level(LED_RED_PIN,   led_status & LEDS_RED);
-  port_pin_set_output_level(LED_GREEN_PIN, led_status & LEDS_GREEN);
-  port_pin_set_output_level(LED_BLUE_PIN,  led_status & LEDS_BLUE);
+  port_pin_set_output_level(LED_RED_PIN,   !(led_status & LEDS_RED));
+  port_pin_set_output_level(LED_GREEN_PIN, !(led_status & LEDS_GREEN));
+  port_pin_set_output_level(LED_BLUE_PIN,  !(led_status & LEDS_BLUE));
   port_pin_set_output_level(LED_WHITE_PIN, !(led_status & LEDS_WHITE));
 }

@@ -9,8 +9,6 @@ open(int32_t baudrate, uart_rx_char_callback char_cb, uart_rx_frame_callback fra
 {
   udc_start();
 
-  leds_off(LEDS_WHITE);
-
   return 1;
 }
 /*---------------------------------------------------------------------------*/
