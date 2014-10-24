@@ -1,8 +1,8 @@
 # SAMR21 port Makefile
 
 # Set build type
-SMALL=1
-DEBUG=0
+SMALL=0
+DEBUG=1
 
 # Default to a optimized small build
 ifndef SMALL
@@ -186,6 +186,7 @@ atsamr21.ld: $(CONTIKI_CPU)/atsamr21.lds
 	$(TRACE_LD)
 	$(LD) $(LDFLAGS) -T atsamr21.ld ${filter-out %.ld %.a,$^} contiki-$(TARGET).a -lc -lnosys -o $@
 	$(SIZE) $@
+	cp $@ $@.elf
 
 ############################################
 # Firmware signing

@@ -58,7 +58,7 @@ watchdog_start(void)
    */
   config_wdt.always_on      = false;
   config_wdt.clock_source   = GCLK_GENERATOR_4;
-  config_wdt.timeout_period = WDT_PERIOD_1024CLK;
+  config_wdt.timeout_period = WDT_PERIOD_4096CLK;
 
   /* Initialize and enable the Watchdog with the user settings */
   wdt_set_config(&config_wdt);

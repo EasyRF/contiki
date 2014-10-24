@@ -6,7 +6,7 @@ MODULES += core/net core/net/ipv6 core/net/mac core/net/ip \
            core/net/llsec
 
 # Add ethernet driver ENC28J60
-#MODULES += core/net/ip64 core/net/ip64-addr dev/enc28j60
+MODULES += core/net/ip64 core/net/ip64-addr dev/enc28j60
 
 # Add current dir
 CONTIKI_TARGET_DIRS  = . dev
@@ -26,7 +26,7 @@ CONTIKI_TARGET_SOURCEFILES += at25dfx.c
 CONTIKI_TARGET_SOURCEFILES += leds.c sensors.c
 
 # Platform specific source files
-CONTIKI_TARGET_SOURCEFILES += contiki-main.c leds-arch.c uart_rs232.c uart_rs485.c uart_usb.c dbg-arch.c at25df32s.c
+CONTIKI_TARGET_SOURCEFILES += contiki-main.c leds-arch.c uart_rs232.c uart_rs485.c uart_usb.c dbg-arch.c at25df32s.c enc28j60-arch.c
 
 # Add platform/target specific files to contiki sourcefiles list
 CONTIKI_SOURCEFILES += $(CONTIKI_TARGET_SOURCEFILES)
@@ -38,7 +38,7 @@ CLEAN += *.easyRF-gatway
 CONTIKI_CPU = $(CONTIKI)/cpu/atsamr21
 
 # Define board file for openocd programming
-#OPENOCD_BOARD = $(CONTIKI)/platform/$(TARGET)/minimal_samr21_swd.cfg
+OPENOCD_BOARD = $(CONTIKI)/platform/$(TARGET)/minimal_samr21_swd.cfg
 
 # Include the CPU Makefile
 include $(CONTIKI_CPU)/Makefile.atsamr21

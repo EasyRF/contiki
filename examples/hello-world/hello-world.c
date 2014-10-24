@@ -38,6 +38,7 @@
  */
 
 #include "contiki.h"
+#include "dev/leds.h"
 
 #include <stdio.h> /* For printf() */
 /*---------------------------------------------------------------------------*/
@@ -57,6 +58,7 @@ PROCESS_THREAD(hello_world_process, ev, data)
 
     if (etimer_expired(&et)) {
       printf("Hello, world\n");
+      leds_toggle(LEDS_RED);
       etimer_restart(&et);
     }
   }

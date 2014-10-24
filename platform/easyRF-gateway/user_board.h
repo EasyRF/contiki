@@ -53,6 +53,8 @@ void system_board_init(void);
 #define SERIAL_FLASH_CS               PIN_PA27
 #define DISPLAY_CS                    PIN_PA28
 
+#define ESD_SPI_BAUDRATE              1000000
+
 /** @} */
 
 

@@ -124,7 +124,7 @@ typedef uint32_t uip_stats_t;
 #endif
 
 #ifndef DBG_CONF_USB
-#define DBG_CONF_USB                1 /**< All debugging over UART by default */
+#define DBG_CONF_USB                0 /**< All debugging over UART by default */
 #endif
 
 #ifndef SERIAL_LINE_CONF_UART
@@ -383,6 +383,17 @@ typedef uint32_t uip_stats_t;
 #endif /* UIP_CONF_IPV6 */
 /** @} */
 /*---------------------------------------------------------------------------*/
+
+
+#undef UIP_CONF_RECEIVE_WINDOW
+#define UIP_CONF_RECEIVE_WINDOW  (UIP_CONF_BUFFER_SIZE - 60)
+
+#undef UIP_CONF_TCP_MSS
+#define UIP_CONF_TCP_MSS       576
+
+#undef UIP_FALLBACK_INTERFACE
+#define UIP_FALLBACK_INTERFACE           ip64_uip_fallback_interface
+
 
 #endif /* CONTIKI_CONF_H_ */
 

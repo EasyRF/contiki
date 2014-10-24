@@ -4,7 +4,7 @@
 #include "dev/leds.h"
 #include "dev/watchdog.h"
 #include "dev/serial-line.h"
-#include "dev/slip.h"
+#include "ip64.h"
 #include "lib/random.h"
 #include "net/netstack.h"
 #include "net/queuebuf.h"
@@ -64,7 +64,20 @@ main(void)
 {
   clock_init();
 
+  struct port_config pin_conf;
+  port_get_config_defaults(&pin_conf);
+
+  /* Configure LEDs as outputs, turn them off */
+  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
+
+  port_pin_set_config(PIN_PA28, &pin_conf);
+  port_pin_set_output_level(PIN_PA28, true);
+
   leds_init();
+
+  leds_off(LEDS_WHITE);
+
+  leds_on(LEDS_GREEN);
 
   dbg_init();
 
@@ -93,6 +106,7 @@ main(void)
   memcpy(&uip_lladdr.addr, &linkaddr_node_addr, sizeof(uip_lladdr.addr));
   queuebuf_init();
   process_start(&tcpip_process, NULL);
+  ip64_init();
 #endif /* UIP_CONF_IPV6 */
 
   energest_init();
@@ -115,3 +129,7 @@ main(void)
   }
 }
 /*---------------------------------------------------------------------------*/
+void uip_log(char *msg)
+{
+  printf(msg);
+}
