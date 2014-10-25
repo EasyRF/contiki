@@ -3,12 +3,17 @@
 #include "log.h"
 
 /*---------------------------------------------------------------------------*/
-PROCESS(hello_world_process, "Hello world process");
-AUTOSTART_PROCESSES(&hello_world_process);
+PROCESS(flash_test_process, "Flash-test process");
+AUTOSTART_PROCESSES(&flash_test_process);
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(hello_world_process, ev, data)
+PROCESS_THREAD(flash_test_process, ev, data)
 {
+  static struct etimer et;
+
   PROCESS_BEGIN();
+
+  etimer_set(&et, CLOCK_SECOND * 5);
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
   INFO("Flash test");
 
