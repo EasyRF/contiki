@@ -1,6 +1,8 @@
 #include <asf.h>
 
 #include "contiki.h"
+#include "contiki-lib.h"
+#include "contiki-net.h"
 #include "dev/leds.h"
 #include "dev/watchdog.h"
 #include "dev/serial-line.h"
@@ -42,6 +44,11 @@ set_rf_params(void)
   /* Populate linkaddr_node_addr. Maintain endianness */
   memcpy(&linkaddr_node_addr, &ext_addr[8 - LINKADDR_SIZE], LINKADDR_SIZE);
 
+//  /* Set manufacturer part of MAC address */
+//  linkaddr_node_addr.u8[0] = 0;
+//  linkaddr_node_addr.u8[1] = 0x80;
+//  linkaddr_node_addr.u8[2] = 0xE1;
+
 #if STARTUP_CONF_VERBOSE
   {
     int i;
@@ -58,6 +65,18 @@ set_rf_params(void)
   NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, SAMR21_RF_CHANNEL);
   NETSTACK_RADIO.set_object(RADIO_PARAM_64BIT_ADDR, ext_addr, 8);
 }
+/*---------------------------------------------------------------------------*/
+#if UIP_CONF_ROUTER
+static void
+set_global_address(void)
+{
+  uip_ipaddr_t ipaddr;
+
+  uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
+  uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
+  uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
+}
+#endif /* UIP_CONF_ROUTER */
 /*---------------------------------------------------------------------------*/
 int
 main(void)
@@ -105,6 +124,7 @@ main(void)
   process_start(&tcpip_process, NULL);
 #ifdef IP64_CONF_ETH_DRIVER
   ip64_init();
+  set_global_address();
 #endif /* IP64_CONF_ETH_DRIVER */
 #endif /* UIP_CONF_IPV6 */
 
@@ -128,5 +148,5 @@ main(void)
 /*---------------------------------------------------------------------------*/
 void uip_log(char *msg)
 {
-  printf(msg);
+  printf("%s\n", msg);
 }

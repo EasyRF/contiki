@@ -384,15 +384,16 @@ typedef uint32_t uip_stats_t;
 /** @} */
 /*---------------------------------------------------------------------------*/
 
+//#define UIP_CONF_LOGGING          1
 
 #undef UIP_CONF_RECEIVE_WINDOW
-#define UIP_CONF_RECEIVE_WINDOW  (UIP_CONF_BUFFER_SIZE - 60)
+#define UIP_CONF_RECEIVE_WINDOW   (UIP_CONF_BUFFER_SIZE - 60)
 
 #undef UIP_CONF_TCP_MSS
-#define UIP_CONF_TCP_MSS       576
+#define UIP_CONF_TCP_MSS          UIP_CONF_RECEIVE_WINDOW
 
 #undef UIP_FALLBACK_INTERFACE
-#define UIP_FALLBACK_INTERFACE           ip64_uip_fallback_interface
+#define UIP_FALLBACK_INTERFACE    ip64_uip_fallback_interface
 
 
 #endif /* CONTIKI_CONF_H_ */
