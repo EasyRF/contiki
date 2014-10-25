@@ -64,19 +64,15 @@ main(void)
 {
   clock_init();
 
+  /* Turn of CS of LCD */
   struct port_config pin_conf;
   port_get_config_defaults(&pin_conf);
-
-  /* Configure LEDs as outputs, turn them off */
   pin_conf.direction = PORT_PIN_DIR_OUTPUT;
-
-  port_pin_set_config(PIN_PA28, &pin_conf);
-  port_pin_set_output_level(PIN_PA28, true);
+  port_pin_set_config(DISPLAY_CS, &pin_conf);
+  port_pin_set_output_level(DISPLAY_CS, true);
 
   leds_init();
-
   leds_off(LEDS_WHITE);
-
   leds_on(LEDS_GREEN);
 
   dbg_init();
@@ -107,7 +103,9 @@ main(void)
   memcpy(&uip_lladdr.addr, &linkaddr_node_addr, sizeof(uip_lladdr.addr));
   queuebuf_init();
   process_start(&tcpip_process, NULL);
+#ifdef IP64_CONF_ETH_DRIVER
   ip64_init();
+#endif /* IP64_CONF_ETH_DRIVER */
 #endif /* UIP_CONF_IPV6 */
 
   energest_init();
