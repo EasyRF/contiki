@@ -53,7 +53,7 @@ void log_message(const char *part1, const char *part2);
 #include <stdio.h>
 #include "sys/clock.h"
 extern const char* log_formatted_level_strings[];
-#define LOG_FORMATTED(level, fmt, ...) printf("%s - %ld - ", log_formatted_level_strings[level], clock_seconds()); printf("%s: ", __func__); printf(fmt,  ##__VA_ARGS__ ); printf("\n");
+#define LOG_FORMATTED(level, fmt, ...) printf("%s - %ld - ", log_formatted_level_strings[level], clock_time()); printf("%s: ", __func__); printf(fmt,  ##__VA_ARGS__ ); printf("\n");
 #else
 #define LOG_FORMATTED(level, fmt, ...)
 #endif
