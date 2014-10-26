@@ -160,6 +160,8 @@ read(void *buf, unsigned short buf_len)
 {
   int len = rx_size;
 
+  TRACE("received: %d bytes", len);
+
   if (len > 0) {
     /* Check available buffer space */
     if (buf_len < len) {
