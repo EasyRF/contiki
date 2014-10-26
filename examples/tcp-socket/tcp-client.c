@@ -38,7 +38,7 @@
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
-#define SEND_INTERVAL     (CLOCK_SECOND / 2)
+#define SEND_INTERVAL     (CLOCK_SECOND / 4)
 #define MAX_PAYLOAD_LEN   40
 
 #define SERVER_PORT 80
