@@ -180,7 +180,7 @@ typedef uint32_t uip_stats_t;
 #endif /* NETSTACK_CONF_NETWORK */
 
 #ifndef NETSTACK_CONF_MAC
-#define NETSTACK_CONF_MAC     nullmac_driver
+#define NETSTACK_CONF_MAC     csma_driver
 #endif
 
 #ifndef NETSTACK_CONF_RDC
@@ -280,6 +280,16 @@ typedef uint32_t uip_stats_t;
  * @{
  */
 
+/* uIP */
+#ifndef UIP_CONF_BUFFER_SIZE
+#define UIP_CONF_BUFFER_SIZE              1300
+#endif
+
+#define UIP_CONF_IPV6_QUEUE_PKT              0
+#define UIP_CONF_IPV6_CHECKS                 1
+#define UIP_CONF_IPV6_REASSEMBLY             0
+#define UIP_CONF_MAX_LISTENPORTS             8
+
 /* Don't let contiki-default-conf.h decide if we are an IPv6 build */
 #ifndef UIP_CONF_IPV6
 #define UIP_CONF_IPV6                        1
@@ -298,7 +308,7 @@ typedef uint32_t uip_stats_t;
 #define UIP_CONF_TCP                         1
 #endif
 #ifndef UIP_CONF_TCP_MSS
-#define UIP_CONF_TCP_MSS                    64
+#define UIP_CONF_TCP_MSS                     (UIP_CONF_BUFFER_SIZE - 60)
 #endif
 #define UIP_CONF_UDP                         1
 #define UIP_CONF_UDP_CHECKSUMS               1
@@ -330,16 +340,6 @@ typedef uint32_t uip_stats_t;
 #ifndef UIP_CONF_MAX_ROUTES
 #define UIP_CONF_MAX_ROUTES                 20
 #endif
-
-/* uIP */
-#ifndef UIP_CONF_BUFFER_SIZE
-#define UIP_CONF_BUFFER_SIZE              1300
-#endif
-
-#define UIP_CONF_IPV6_QUEUE_PKT              0
-#define UIP_CONF_IPV6_CHECKS                 1
-#define UIP_CONF_IPV6_REASSEMBLY             0
-#define UIP_CONF_MAX_LISTENPORTS             8
 
 /* 6lowpan */
 #define SICSLOWPAN_CONF_COMPRESSION          SICSLOWPAN_COMPRESSION_HC06
@@ -385,12 +385,6 @@ typedef uint32_t uip_stats_t;
 /*---------------------------------------------------------------------------*/
 
 //#define UIP_CONF_LOGGING          1
-
-#undef UIP_CONF_RECEIVE_WINDOW
-#define UIP_CONF_RECEIVE_WINDOW   (UIP_CONF_BUFFER_SIZE - 60)
-
-#undef UIP_CONF_TCP_MSS
-#define UIP_CONF_TCP_MSS          UIP_CONF_RECEIVE_WINDOW
 
 #undef UIP_FALLBACK_INTERFACE
 #define UIP_FALLBACK_INTERFACE    ip64_uip_fallback_interface

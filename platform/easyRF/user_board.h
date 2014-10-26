@@ -123,6 +123,7 @@ void system_board_init(void);
 #define RF_IRQ_MUX              MUX_PB00A_EIC_EXTINT0
 #define RF_IRQ_PINMUX           PINMUX_PB00A_EIC_EXTINT0
 
+#define AT86RFX_SPI_BAUDRATE         4000000
 
 #define AT86RFX_SPI                  SERCOM4
 #define AT86RFX_RST_PIN              PIN_PB15
