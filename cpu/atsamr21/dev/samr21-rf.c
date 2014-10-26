@@ -41,10 +41,6 @@ static volatile uint8_t rx_lqi;
 static volatile int8_t rx_rssi;
 
 /*---------------------------------------------------------------------------*/
-
-static void samr21_rf_interrupt_handler(void);
-
-/*---------------------------------------------------------------------------*/
 PROCESS(samr21_rf_process, "SAMR21 RF driver");
 /*---------------------------------------------------------------------------*/
 static void
@@ -80,6 +76,8 @@ gpio_init(void)
 static int
 init(void)
 {
+  uint16_t seed;
+
   INFO("Initializing at86rf233 transceiver");
 
   gpio_init();
@@ -87,8 +85,16 @@ init(void)
   /* Initialize transceiver */
   PHY_Init();
 
+  /* Enable RX SAFE mode */
+  trx_reg_write(TRX_CTRL_2_REG, (1 << RX_SAFE_MODE));
+
+  /* Set random SEED for CSMA-CA */
+  seed = PHY_RandomReq();
+  trx_reg_write(CSMA_SEED_0_REG, seed & 0xff);
+  trx_reg_write(CSMA_SEED_1_REG, trx_reg_read(CSMA_SEED_1_REG) | ((seed >> 8) & 0x07));
+
   /* Install transceiver interrupt handler */
-  trx_irq_init(samr21_rf_interrupt_handler);
+  trx_irq_init(PHY_TaskHandler);
 
   /* Enable TRX_END interrupt */
   trx_reg_write(IRQ_MASK_REG, (1 << TRX_END));
@@ -137,13 +143,13 @@ transmit(unsigned short transmit_len)
     TRACE("RADIO_TX_OK");
     return RADIO_TX_OK;
   } else if (tx_status == PHY_STATUS_NO_ACK) {
-    TRACE("RADIO_TX_NOACK");
+    WARN("RADIO_TX_NOACK");
     return RADIO_TX_NOACK;
   } else if (tx_status == PHY_STATUS_CHANNEL_ACCESS_FAILURE) {
-    TRACE("RADIO_TX_COLLISION");
+    WARN("RADIO_TX_COLLISION");
     return RADIO_TX_COLLISION;
   } else {
-    TRACE("RADIO_TX_ERR");
+    WARN("RADIO_TX_ERR");
     return RADIO_TX_ERR;
   }
 }
@@ -466,13 +472,6 @@ const struct radio_driver samr21_rf_driver =
   get_object,
   set_object
 };
-/*---------------------------------------------------------------------------*/
-static void
-samr21_rf_interrupt_handler(void)
-{
-  /* Handle event */
-  PHY_TaskHandler();
-}
 /*---------------------------------------------------------------------------*/
 void
 PHY_DataConf(uint8_t status)
