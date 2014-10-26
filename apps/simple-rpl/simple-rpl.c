@@ -40,7 +40,7 @@
 
 #include <string.h>
 
-#define DEBUG DEBUG_FULL
+#define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
 #define RPL_DAG_GRACE_PERIOD (CLOCK_SECOND * 20 * 1)
@@ -87,8 +87,8 @@ create_dag_callback(void *ptr)
 
     dag = rpl_get_any_dag();
 #if DEBUG
-    printf("Found a network we did not create\n");
-    printf("version %d grounded %d preference %d used %d joined %d rank %d\n",
+    PRINTF("Found a network we did not create\n");
+    PRINTF("version %d grounded %d preference %d used %d joined %d rank %d\n",
            dag->version, dag->grounded,
            dag->preference, dag->used,
            dag->joined, dag->rank);
@@ -133,17 +133,6 @@ set_global_address(void)
   int i;
   uint8_t state;
 
-  printf("BEFORE IPv6 addresses: ");
-  for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
-    state = uip_ds6_if.addr_list[i].state;
-    if(uip_ds6_if.addr_list[i].isused &&
-       (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
-      uip_debug_ipaddr_print(&uip_ds6_if.addr_list[i].ipaddr);
-      printf("\n");
-    }
-  }
-  printf("\n");
-
   /* Assign a unique local address (RFC4193,
      http://tools.ietf.org/html/rfc4193). */
 #if CONTIKI_TARGET_TRXEB1120 || CONTIKI_TARGET_ETH1120
@@ -154,13 +143,13 @@ set_global_address(void)
   uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
   uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
 
-  printf("AFTER IPv6 addresses: ");
+  PRINTF("IPv6 addresses: ");
   for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
     state = uip_ds6_if.addr_list[i].state;
     if(uip_ds6_if.addr_list[i].isused &&
        (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
       uip_debug_ipaddr_print(&uip_ds6_if.addr_list[i].ipaddr);
-      printf("\n");
+      PRINTF("\n");
     }
   }
 
