@@ -39,8 +39,7 @@
 
 #include "contiki.h"
 #include "dev/leds.h"
-
-#include <stdio.h> /* For printf() */
+#include "log.h"
 /*---------------------------------------------------------------------------*/
 PROCESS(hello_world_process, "Hello world process");
 AUTOSTART_PROCESSES(&hello_world_process);
@@ -51,17 +50,17 @@ PROCESS_THREAD(hello_world_process, ev, data)
 
   PROCESS_BEGIN();
 
-  etimer_set(&et, CLOCK_SECOND * 2);
+  INFO("Hello, world\n");
 
-  while (1) {
-    PROCESS_YIELD();
+//  etimer_set(&et, CLOCK_SECOND * 10);
 
-    if (etimer_expired(&et)) {
-      printf("Hello, world\n");
-      leds_toggle(LEDS_RED);
-      etimer_restart(&et);
-    }
-  }
+//  while (1) {
+//    PROCESS_YIELD();
+//    if (etimer_expired(&et)) {
+//      leds_toggle(LEDS_RED);
+//      etimer_restart(&et);
+//    }
+//  }
 
   PROCESS_END();
 }

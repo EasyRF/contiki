@@ -23,7 +23,7 @@ PROCESS_THREAD(easyRF_demo_process, ev, data)
 
   PROCESS_BEGIN();
 
-  etimer_set(&et, CLOCK_SECOND * 5);
+  etimer_set(&et, CLOCK_SECOND * 10);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
   INFO("EasyRF Demo Process started");

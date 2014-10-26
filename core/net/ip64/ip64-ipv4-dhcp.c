@@ -78,14 +78,18 @@ ip64_dhcpc_configured(const struct ip64_dhcpc_state *s)
 {
   uip_ip6addr_t ip6dnsaddr;
   printf("DHCP Configured with %d.%d.%d.%d\n",
-	 s->ipaddr.u8[0], s->ipaddr.u8[1],
-	 s->ipaddr.u8[2], s->ipaddr.u8[3]);
+   s->ipaddr.u8[0], s->ipaddr.u8[1],
+   s->ipaddr.u8[2], s->ipaddr.u8[3]);
 
   ip64_set_hostaddr((uip_ip4addr_t *)&s->ipaddr);
   ip64_set_netmask((uip_ip4addr_t *)&s->netmask);
   ip64_set_draddr((uip_ip4addr_t *)&s->default_router);
   ip64_addr_4to6((uip_ip4addr_t *)&s->dnsaddr, &ip6dnsaddr);
   //  mdns_conf(&ip6dnsaddr);
+
+
+  /* Set us up as a RPL root node. */
+  simple_rpl_init_dag_immediately();
 }
 /*---------------------------------------------------------------------------*/
 void

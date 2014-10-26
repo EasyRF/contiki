@@ -6,7 +6,8 @@ MODULES += core/net core/net/ipv6 core/net/mac core/net/ip \
            core/net/llsec
 
 # Add ethernet driver ENC28J60
-MODULES += core/net/ip64 core/net/ip64-addr dev/enc28j60
+MODULES += core/net/ip64 dev/enc28j60
+MODULES += core/net/ip64-addr
 
 # Add current dir
 CONTIKI_TARGET_DIRS  = . dev

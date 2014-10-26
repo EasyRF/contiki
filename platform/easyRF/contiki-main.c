@@ -13,11 +13,11 @@
 #include "net/ip/tcpip.h"
 #include "net/ip/uip.h"
 #include "net/mac/frame802154.h"
+#include "simple-rpl.h"
 #include "lib/sensors.h"
 #include "log.h"
 #include "dbg-arch.h"
 #include "samr21-rf.h"
-#include <stdio.h>
 
 
 #define BOARD_STRING  BOARD_NAME
@@ -32,22 +32,17 @@ set_rf_params(void)
   uint16_t short_addr;
   uint8_t ext_addr[8];
 
-  uint32_t hw_mac_address_lower = (*((uint32_t *)0x0080A00C) ^ *((uint32_t *)0x0080A040));
-  uint32_t hw_mac_address_upper = (*((uint32_t *)0x0080A044) ^ *((uint32_t *)0x0080A048));
+  uint32_t hw_serial_lower = (*((uint32_t *)0x0080A00C) ^ *((uint32_t *)0x0080A040));
+  uint32_t hw_serial_upper = (*((uint32_t *)0x0080A044) ^ *((uint32_t *)0x0080A048));
 
-  memcpy(&ext_addr[0], &hw_mac_address_lower, 4);
-  memcpy(&ext_addr[4], &hw_mac_address_upper, 4);
+  memcpy(&ext_addr[0], &hw_serial_lower, 4);
+  memcpy(&ext_addr[4], &hw_serial_upper, 4);
 
-  short_addr = ext_addr[7];
+  short_addr  = ext_addr[7];
   short_addr |= ext_addr[6] << 8;
 
   /* Populate linkaddr_node_addr. Maintain endianness */
   memcpy(&linkaddr_node_addr, &ext_addr[8 - LINKADDR_SIZE], LINKADDR_SIZE);
-
-//  /* Set manufacturer part of MAC address */
-//  linkaddr_node_addr.u8[0] = 0;
-//  linkaddr_node_addr.u8[1] = 0x80;
-//  linkaddr_node_addr.u8[2] = 0xE1;
 
 #if STARTUP_CONF_VERBOSE
   {
@@ -66,21 +61,27 @@ set_rf_params(void)
   NETSTACK_RADIO.set_object(RADIO_PARAM_64BIT_ADDR, ext_addr, 8);
 }
 /*---------------------------------------------------------------------------*/
-#if UIP_CONF_ROUTER
 static void
-set_global_address(void)
+rpl_route_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
+                   int numroutes)
 {
-  uip_ipaddr_t ipaddr;
+  static uint8_t has_rpl_route = 0;
 
-  uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
-  uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
-  uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
+  if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
+    if (!has_rpl_route) {
+      has_rpl_route = 1;
+      INFO("Got first RPL route (num routes = %d)", numroutes);
+    } else {
+      INFO("Got RPL route (num routes = %d)", numroutes);
+    }
+  }
 }
-#endif /* UIP_CONF_ROUTER */
 /*---------------------------------------------------------------------------*/
 int
 main(void)
 {
+  static struct uip_ds6_notification n;
+
   clock_init();
 
   /* Turn of CS of LCD */
@@ -96,10 +97,12 @@ main(void)
 
   dbg_init();
 
+  clock_wait(CLOCK_SECOND * 5);
+
   process_init();
 
-  watchdog_init();
-  watchdog_start();
+//  watchdog_init();
+//  watchdog_start();
 
   rtimer_init();
 
@@ -122,10 +125,9 @@ main(void)
   memcpy(&uip_lladdr.addr, &linkaddr_node_addr, sizeof(uip_lladdr.addr));
   queuebuf_init();
   process_start(&tcpip_process, NULL);
-#ifdef IP64_CONF_ETH_DRIVER
+  uip_ds6_notification_add(&n, rpl_route_callback);
+  simple_rpl_init();
   ip64_init();
-  set_global_address();
-#endif /* IP64_CONF_ETH_DRIVER */
 #endif /* UIP_CONF_IPV6 */
 
   energest_init();
