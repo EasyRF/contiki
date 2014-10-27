@@ -101,11 +101,12 @@ main(void)
 
   process_init();
 
-//  watchdog_init();
-//  watchdog_start();
+  watchdog_init();
+  watchdog_start();
 
   rtimer_init();
 
+  INFO("Main CPU clock: %ld", system_cpu_clock_get_hz());
   INFO(CONTIKI_VERSION_STRING);
   INFO(BOARD_STRING);
   INFO(" Net: %s", NETSTACK_NETWORK.name);
