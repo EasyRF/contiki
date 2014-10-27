@@ -14,13 +14,15 @@
 
 #include "log.h"
 
-#undef TRACE
-#define TRACE(...)
-
+//#undef TRACE
+//#define TRACE(...)
 
 
 #define PHY_STATUS_UNKNOWN            255
 #define SAMR21_MAX_TX_POWER_REG_VAL   0x1f
+
+#define ANTENNA_0   0x01
+#define ANTENNA_1   0x02
 
 /*---------------------------------------------------------------------------*/
 
@@ -63,11 +65,15 @@ gpio_init(void)
 
   pin_conf.direction  = PORT_PIN_DIR_INPUT;
   port_pin_set_config(AT86RFX_SPI_MISO, &pin_conf);
+
+  /* Enable APB Clock for RFCTRL */
   PM->APBCMASK.reg |= (1<<PM_APBCMASK_RFCTRL_Pos);
+
+  /* Unclear ?? */
   REG_RFCTRL_FECFG = RFCTRL_CFG_ANT_DIV;
   struct system_pinmux_config config_pinmux;
   system_pinmux_get_config_defaults(&config_pinmux);
-  config_pinmux.mux_position = MUX_PA09F_RFCTRL_FECTRL1 ;
+  config_pinmux.mux_position = MUX_PA09F_RFCTRL_FECTRL1;
   config_pinmux.direction    = SYSTEM_PINMUX_PIN_DIR_OUTPUT;
   system_pinmux_pin_set_config(PIN_RFCTRL1, &config_pinmux);
   system_pinmux_pin_set_config(PIN_RFCTRL2, &config_pinmux);
@@ -84,6 +90,9 @@ init(void)
 
   /* Initialize transceiver */
   PHY_Init();
+
+  /* Enable antenna switch and select antenna 1 */
+  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | ANTENNA_0);
 
   /* Enable RX SAFE mode */
   trx_reg_write(TRX_CTRL_2_REG, (1 << RX_SAFE_MODE));
@@ -114,6 +123,23 @@ init(void)
 }
 /*---------------------------------------------------------------------------*/
 static int
+receiving_packet(void)
+{
+  uint8_t status = trx_reg_read(TRX_STATUS_REG) & TRX_STATUS_MASK;
+  int res = (status == TRX_STATUS_BUSY_RX || status == TRX_STATUS_BUSY_RX_AACK);
+  if (res) WARN("receiving");
+  return res;
+}
+/*---------------------------------------------------------------------------*/
+static int
+pending_packet(void)
+{
+  int res = (rx_size > 0);
+  if (res) WARN("pending");
+  return res;
+}
+/*---------------------------------------------------------------------------*/
+static int
 prepare(const void *payload, unsigned short payload_len)
 {
   /* Set payload length in first byte of tx_buffer */
@@ -130,6 +156,12 @@ transmit(unsigned short transmit_len)
 {
   /* Reset tx_status */
   tx_status = PHY_STATUS_UNKNOWN;
+
+  /* Make sure we're not receiving a packet */
+  if (receiving_packet() || pending_packet()) {
+    WARN("Aborting transmit");
+    return RADIO_TX_COLLISION;
+  }
 
   /* PHY_DataReq expects the payload length in the first byte */
   PHY_DataReq(tx_buffer);
@@ -166,14 +198,14 @@ read(void *buf, unsigned short buf_len)
 {
   int len = rx_size;
 
-  TRACE("received: %d bytes", len);
-
   if (len > 0) {
     /* Check available buffer space */
     if (buf_len < len) {
       WARN("Packet does not fit buffer");
       return 0;
     }
+
+    TRACE("received: %d bytes, rssi: %d", len, rx_rssi);
 
     /* Store the length of the packet */
     packetbuf_set_datalen(len);
@@ -202,20 +234,12 @@ channel_clear(void)
 }
 /*---------------------------------------------------------------------------*/
 static int
-receiving_packet(void)
-{
-  return (trx_reg_read(TRX_STATUS_REG) & TRX_STATUS_MASK) == TRX_STATUS_BUSY_RX;
-}
-/*---------------------------------------------------------------------------*/
-static int
-pending_packet(void)
-{
-  return (rx_size > 0);
-}
-/*---------------------------------------------------------------------------*/
-static int
 on(void)
 {
+  TRACE("on");
+
+  while (receiving_packet());
+
   PHY_SetRxState(true);
 
   rx_on = 1;
@@ -226,6 +250,10 @@ on(void)
 static int
 off(void)
 {
+  TRACE("off");
+
+  while (receiving_packet());
+
   PHY_SetRxState(false);
 
   rx_on = 0;
@@ -345,6 +373,8 @@ get_value(radio_param_t param, radio_value_t *value)
     *value = get_cca_threshold();
     return RADIO_RESULT_OK;
   case RADIO_PARAM_RSSI:
+    TRACE("RADIO_PARAM_RSSI");
+    while (receiving_packet());
     *value = PHY_EdReq();
     return RADIO_RESULT_OK;
   case RADIO_CONST_CHANNEL_MIN:
@@ -527,6 +557,8 @@ unsigned short
 samr21_random_rand(void)
 {
   if (initialized) {
+    TRACE("samr21_random_rand");
+    while (receiving_packet());
     return PHY_RandomReq();
   } else {
     WARN("PHY not initialized returning 0 instead of random number");

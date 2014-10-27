@@ -155,7 +155,7 @@ config.pinmux_pad3 = RF_SPI_SERCOM_PINMUX_PAD3;
     eint_chan_conf.gpio_pin_pull      = EXTINT_PULL_NONE; \
     eint_chan_conf.wake_if_sleeping    = true; \
     eint_chan_conf.filter_input_signal = false; \
-    eint_chan_conf.detection_criteria  = EXTINT_DETECT_BOTH; \
+    eint_chan_conf.detection_criteria  = EXTINT_DETECT_RISING; \
     extint_chan_set_config(AT86RFX_IRQ_CHAN, &eint_chan_conf); \
     extint_register_callback((extint_callback_t)AT86RFX_ISR,AT86RFX_IRQ_CHAN, EXTINT_CALLBACK_TYPE_DETECT);\
     extint_chan_enable_callback(AT86RFX_IRQ_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
