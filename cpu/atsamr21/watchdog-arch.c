@@ -54,7 +54,7 @@ watchdog_start(void)
   /* Set the Watchdog configuration settings
    * GCLK_GENERATOR_4 uses ULP (Ultra Low Power) clock which runs at 32 kHz
    * The prescaler is set to 32 so a clock speed of 1 kHz is obtained
-   * Using WDT_PERIOD_1024CLK, the timeout is about 1 second
+   * Using WDT_PERIOD_4096CLK, the timeout is about 4 second
    */
   config_wdt.always_on      = false;
   config_wdt.clock_source   = GCLK_GENERATOR_4;

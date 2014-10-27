@@ -46,14 +46,14 @@ rtimer_arch_init(void)
   /* Configure RTC in counter mode */
   rtc_count_get_config_defaults(&config_rtc_count);
   config_rtc_count.prescaler           = RTC_COUNT_PRESCALER_DIV_1;
-  config_rtc_count.mode                = RTC_COUNT_MODE_16BIT;
+  config_rtc_count.mode                = RTC_COUNT_MODE_32BIT;
   config_rtc_count.continuously_update = true;
   rtc_count_init(&rtc_instance, RTC, &config_rtc_count);
 
   /* Enable RTC */
   rtc_count_enable(&rtc_instance);
 
-  rtc_count_set_period(&rtc_instance, 0xFFFF);
+//  rtc_count_set_period(&rtc_instance, 0xFFFF);
 
 #ifdef TEST_RTC_COUNTER
   /* Overflow callback and reload value */
@@ -86,7 +86,7 @@ rtimer_arch_schedule(rtimer_clock_t t)
    * New value must be 5 ticks in the future. The ST may tick once while we're
    * writing the registers. We play it safe here and we add a bit of leeway
    */
-  if ((int32_t)(t - now) < 7) {
+  if ((rtimer_clock_t)(t - now) < 7) {
     t = now + 7;
   }
 

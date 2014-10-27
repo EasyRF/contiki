@@ -1,9 +1,9 @@
 /**
- * \addtogroup samr21_xplained_pro
+ * \addtogroup EasyRF
  * @{
  *
  * \file
- *  Configuration for the samr21_xplained_pro platform
+ *  Configuration for the EasyRF platform
  */
 #ifndef CONTIKI_CONF_H_
 #define CONTIKI_CONF_H_
@@ -22,7 +22,7 @@
  * Those values are not meant to be modified by the user
  * @{
  */
-#define CLOCK_CONF_SECOND 128
+#define CLOCK_CONF_SECOND   1000
 
 /* Compiler configurations */
 #define CCIF
@@ -32,7 +32,12 @@
 typedef uint32_t clock_time_t;
 typedef uint32_t uip_stats_t;
 
-
+/*
+ * rtimer.h typedefs rtimer_clock_t as unsigned short. We need to define
+ * RTIMER_CLOCK_LT to override this
+ */
+typedef uint32_t rtimer_clock_t;
+#define RTIMER_CLOCK_LT(a,b)     ((int32_t)((a)-(b)) < 0)
 
 /** @} */
 /*---------------------------------------------------------------------------*/
