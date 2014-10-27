@@ -53,7 +53,7 @@ void log_message(const char *part1, const char *part2);
 #include <stdio.h>
 #include "sys/clock.h"
 extern const char* log_formatted_level_strings[];
-#define LOG_FORMATTED(level, fmt, ...) printf("%s - %ld - ", log_formatted_level_strings[level], clock_time()); printf("%s: ", __func__); printf(fmt,  ##__VA_ARGS__ ); printf("\n");
+#define LOG_FORMATTED(level, fmt, ...) do { printf("%s - %ld - ", log_formatted_level_strings[level], clock_time()); printf("%s: ", __func__); printf(fmt,  ##__VA_ARGS__ ); printf("\n"); } while(0)
 #else
 #define LOG_FORMATTED(level, fmt, ...)
 #endif
@@ -89,7 +89,7 @@ extern const char* log_formatted_level_strings[];
 #endif
 
 #if (LOG_LEVEL >= LOG_LEVEL_FATAL)
-  #define FATAL(fmt, ...)   LOG_FORMATTED(LOG_LEVEL_FATAL, fmt, ##__VA_ARGS__ ); while(1);
+  #define FATAL(fmt, ...)   do { LOG_FORMATTED(LOG_LEVEL_FATAL, fmt, ##__VA_ARGS__ ); while(1); } while(0)
 #else
   #define FATAL(fmt, ...)   while (1);
 #endif
