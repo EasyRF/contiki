@@ -185,7 +185,7 @@ typedef uint32_t rtimer_clock_t;
 #endif /* NETSTACK_CONF_NETWORK */
 
 #ifndef NETSTACK_CONF_MAC
-#define NETSTACK_CONF_MAC     csma_driver
+#define NETSTACK_CONF_MAC     nullmac_driver
 #endif
 
 #ifndef NETSTACK_CONF_RDC
@@ -193,6 +193,8 @@ typedef uint32_t rtimer_clock_t;
 #endif
 
 /* Configure NullRDC for when it's selected */
+#define NULLRDC_CONF_ADDRESS_FILTER             0
+#define RDC_CONF_WITH_DUPLICATE_DETECTION       0
 #define NULLRDC_802154_AUTOACK                  0
 #define NULLRDC_802154_AUTOACK_HW               1
 
