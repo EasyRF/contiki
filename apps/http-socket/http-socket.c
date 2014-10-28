@@ -35,8 +35,8 @@
 #include "http-socket.h"
 #include "log.h"
 
-#define PRINTF TRACE
-/*#define PRINTF(...)*/
+//#define PRINTF TRACE
+#define PRINTF(...)
 
 #define MAX_PATHLEN 80
 #define MAX_HOSTLEN 40
