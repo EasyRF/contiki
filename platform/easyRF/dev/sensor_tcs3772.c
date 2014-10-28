@@ -2,8 +2,8 @@
 #include "sensor_tcs3772.h"
 #include "log.h"
 
-//#undef TRACE
-//#define TRACE(...)
+#undef TRACE
+#define TRACE(...)
 
 /* Bitshift helper */
 #define BM(pos)                 ((uint32_t)1 << pos)
