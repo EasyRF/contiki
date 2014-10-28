@@ -91,6 +91,9 @@ CONTIKI_CPU_SOURCEFILES += usart.c
 #### Sercom SPI
 CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/sercom/spi
 CONTIKI_CPU_SOURCEFILES += spi.c
+#### Sercom I2C
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/sercom/i2c $(ASF_SAM0_DRIVERS)/sercom/i2c/i2c_samd21_r21_d10_d11
+CONTIKI_CPU_SOURCEFILES += i2c_master.c
 ### RTC count
 CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/rtc
 CONTIKI_CPU_SOURCEFILES += rtc_count.c rtc_count_interrupt.c

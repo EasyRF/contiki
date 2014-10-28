@@ -60,10 +60,10 @@ input(struct tcp_socket *s, void *ptr,
 
   printf("input %d bytes '%s'\n", inputdatalen, inputptr);
 
-  sprintf(buf, "Hello from the server! (%d)", ++seq_id);
+//  sprintf(buf, "Hello from the server! (%d)", ++seq_id);
 
-  /* Send response back */
-  tcp_socket_send_str(s, buf);
+//  /* Send response back */
+//  tcp_socket_send_str(s, buf);
 
   return 0;
 }

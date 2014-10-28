@@ -43,6 +43,17 @@ PROCESS(ip64_ipv4_dhcp_process, "IPv4 DHCP");
 uip_ipaddr_t uip_hostaddr; /* Needed because it is referenced by dhcpc.c */
 
 
+/* TODO: Use cleaner callback mechanism */
+#ifdef IP64_CONF_DHCP_CALLBACK
+#define IP64_DHCP_CALLBACK IP64_CONF_DHCP_CALLBACK
+#else
+#define IP64_DHCP_CALLBACK 0
+#endif /*IP64_CONF_DHCP_CALLBACK */
+
+#if IP64_DHCP_CALLBACK
+void dhcp_callback(uint8_t configured);
+#endif
+
 /*---------------------------------------------------------------------------*/
 void
 ip64_ipv4_dhcp_init(void)
@@ -87,13 +98,16 @@ ip64_dhcpc_configured(const struct ip64_dhcpc_state *s)
   ip64_addr_4to6((uip_ip4addr_t *)&s->dnsaddr, &ip6dnsaddr);
   //  mdns_conf(&ip6dnsaddr);
 
-
-  /* Set us up as a RPL root node. */
-  simple_rpl_init_dag_immediately();
+#if IP64_DHCP_CALLBACK
+  dhcp_callback(1);
+#endif
 }
 /*---------------------------------------------------------------------------*/
 void
 ip64_dhcpc_unconfigured(const struct ip64_dhcpc_state *s)
 {
+#if IP64_DHCP_CALLBACK
+  dhcp_callback(0);
+#endif
 }
 /*---------------------------------------------------------------------------*/

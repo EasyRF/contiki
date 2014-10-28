@@ -40,7 +40,7 @@ PROCESS_THREAD(easyRF_demo_process, ev, data)
 
   PROCESS_BEGIN();
 
-  INFO("EasyRF Demo Process started");
+  INFO("EasyRF Demo Ethernet Process started");
 
   uip_ds6_notification_add(&n, rpl_route_callback);
 
@@ -49,10 +49,12 @@ PROCESS_THREAD(easyRF_demo_process, ev, data)
   while (1) {
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
-    if (has_rpl_route) {
-      INFO("****** BEFORE GET ******");
-      http_socket_get(&hs, "http://192.168.1.101:9000/api/things", http_socket_callback, 0);
-    }
+//    http_socket_get(&hs, "http://192.168.1.101:9000/api/things", http_socket_callback, 0);
+
+    static char sensordata[] = "{\"red\":255,\"green\":0,\"blue\":0}";
+
+    http_socket_post(&hs, "http://192.168.1.101:9000/api/devices/1",
+                     (const uint8_t *)sensordata, strlen(sensordata), "application/json", http_socket_callback, 0);
 
     etimer_restart(&et);
   }

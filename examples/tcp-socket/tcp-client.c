@@ -38,13 +38,14 @@
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
-#define SEND_INTERVAL     (CLOCK_SECOND / 4)
+#define SEND_INTERVAL     (CLOCK_SECOND / 2)
 #define MAX_PAYLOAD_LEN   40
 
 #define SERVER_PORT 80
 
 static struct tcp_socket socket;
 static uint8_t connected;
+static uint8_t sending;
 
 static uip_ipaddr_t ipaddr;
 
@@ -69,6 +70,11 @@ timeout_handler(void)
     return;
   }
 
+  if (sending) {
+    printf("waiting for data sent...\n");
+    return;
+  }
+
   printf("Client sending to: ");
   PRINT6ADDR(&ipaddr);
   sprintf(buf, "Hello %d from the client", ++seq_id);
@@ -78,6 +84,8 @@ timeout_handler(void)
 #else /* SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION */
   tcp_socket_send(&socket, (const uint8_t *)buf, strlen(buf));
 #endif /* SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION */
+
+  sending = 1;
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -97,6 +105,7 @@ event(struct tcp_socket *s, void *ptr,
     connected = 1;
   } else if(ev == TCP_SOCKET_DATA_SENT) {
     printf("Socket data was sent\n");
+    sending = 0;
   } else if(ev == TCP_SOCKET_CLOSED) {
     connected = 0;
     printf("Socket closed\n");

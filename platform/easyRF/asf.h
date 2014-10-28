@@ -120,4 +120,8 @@
 // From module: Common files for AT25DFx SerialFlash drivers
 #include <at25dfx.h>
 
+// From module: SERCOM I2C - Master Mode I2C (Polled APIs)
+#include <i2c_common.h>
+#include <i2c_master.h>
+
 #endif // ASF_H

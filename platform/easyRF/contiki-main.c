@@ -6,6 +6,8 @@
 #include "dev/leds.h"
 #include "dev/watchdog.h"
 #include "dev/serial-line.h"
+#include "dev/lcd_34fpc.h"
+#include "dev/sensor_tcs3772.h"
 #include "ip64.h"
 #include "lib/random.h"
 #include "net/netstack.h"
@@ -13,8 +15,8 @@
 #include "net/ip/tcpip.h"
 #include "net/ip/uip.h"
 #include "net/mac/frame802154.h"
-#include "simple-rpl.h"
 #include "lib/sensors.h"
+#include "simple-rpl.h"
 #include "log.h"
 #include "dbg-arch.h"
 #include "samr21-rf.h"
@@ -77,6 +79,14 @@ rpl_route_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
   }
 }
 /*---------------------------------------------------------------------------*/
+void dhcp_callback(uint8_t configured)
+{
+  if (configured) {
+    /* Set us up as a RPL root node. */
+    simple_rpl_init_dag_immediately();
+  }
+}
+/*---------------------------------------------------------------------------*/
 int
 main(void)
 {
@@ -84,12 +94,7 @@ main(void)
 
   clock_init();
 
-  /* Turn of CS of LCD */
-  struct port_config pin_conf;
-  port_get_config_defaults(&pin_conf);
-  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
-  port_pin_set_config(DISPLAY_CS, &pin_conf);
-  port_pin_set_output_level(DISPLAY_CS, true);
+  lcd_init();
 
   leds_init();
   leds_off(LEDS_WHITE);
@@ -98,6 +103,15 @@ main(void)
   dbg_init();
 
   clock_wait(CLOCK_SECOND * 5);
+
+//  INFO("Starting");
+
+//  tcs3772_init();
+
+//  while (1) {
+//    clock_wait(CLOCK_SECOND * 5);
+//    tcs3772_read_status();
+//  }
 
   process_init();
 
