@@ -13,7 +13,7 @@
 static struct uip_udp_conn *server_conn;
 static uint8_t sensor_data[128];
 static uint8_t sensor_data_valid;
-
+static char server_response[64];
 /*---------------------------------------------------------------------------*/
 PROCESS(http_post_process, "HTTP POST Process");
 PROCESS(udp_server_process, "UDP server process");
@@ -25,7 +25,11 @@ void http_socket_callback(struct http_socket *s,
                           const uint8_t *data,
                           uint16_t datalen)
 {
-//  TRACE("ev: %d, datalen: %d", ev, datalen);
+
+  if (ev == HTTP_SOCKET_DATA) {
+    memcpy(server_response, data, datalen);
+    TRACE(server_response);
+  }
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(http_post_process, ev, data)
@@ -37,7 +41,7 @@ PROCESS_THREAD(http_post_process, ev, data)
 
   INFO("EasyRF Ethernet Node Process started");
 
-  etimer_set(&et, CLOCK_SECOND * 1);
+  etimer_set(&et, CLOCK_SECOND / 2);
 
   while (1) {
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
@@ -68,6 +72,13 @@ tcpip_handler(void)
     memcpy(sensor_data, uip_appdata, uip_datalen());
 
     sensor_data_valid = 1;
+
+    uip_ipaddr_copy(&server_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
+
+    uip_udp_packet_send(server_conn, server_response, strlen(server_response));
+
+    /* Restore server connection to allow data from any node */
+    memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
   }
 }
 /*---------------------------------------------------------------------------*/
