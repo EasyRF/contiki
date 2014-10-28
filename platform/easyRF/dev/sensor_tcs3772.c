@@ -1,9 +1,12 @@
 #include <asf.h>
+#include "contiki.h"
+#include "contiki-lib.h"
+#include "contiki-net.h"
 #include "sensor_tcs3772.h"
 #include "log.h"
 
-//#undef TRACE
-//#define TRACE(...)
+#undef TRACE
+#define TRACE(...)
 
 /* Bitshift helper */
 #define BM(pos)                 ((uint32_t)1 << pos)
@@ -81,7 +84,10 @@ struct read_only_regs {
 
 static struct i2c_master_module i2c_master_instance;
 static bool sensor_active;
+static struct read_only_regs sensor_data;
 
+/*---------------------------------------------------------------------------*/
+PROCESS(tcs3772_process, "TCS3772 Process");
 /*---------------------------------------------------------------------------*/
 static bool
 tcs3772_read_reg(uint8_t reg, uint8_t * data)
@@ -216,6 +222,7 @@ tcs3772_init(void)
   uint8_t id;
   struct i2c_master_config config_i2c_master;
 
+  /* Toggle SCL for some time solves I2C periperhal problem */
   struct port_config pin_conf;
   port_get_config_defaults(&pin_conf);
   pin_conf.direction = PORT_PIN_DIR_OUTPUT;
@@ -231,7 +238,7 @@ tcs3772_init(void)
 
   /* Change buffer timeout to something longer. */
   config_i2c_master.buffer_timeout = 10000;
-  config_i2c_master.baud_rate = 100;
+  config_i2c_master.baud_rate = 400;
   config_i2c_master.pinmux_pad0 = SENSORS_I2C_SERCOM_PINMUX_PAD0;
   config_i2c_master.pinmux_pad1 = SENSORS_I2C_SERCOM_PINMUX_PAD1;
 
@@ -275,12 +282,6 @@ deactivate_sensor(void)
 static int
 value(int type)
 {
-  struct read_only_regs sensor_data = {0,0,0,0,0,0,0};
-
-  if (!tcs3772_read_all(&sensor_data)) {
-    WARN("read error");
-  }
-
   uint16_t rgb_max = max(sensor_data.rdata, max(sensor_data.gdata, sensor_data.bdata));
 
   switch(type) {
@@ -321,13 +322,36 @@ configure(int type, int value)
     if(value) {
       TRACE("**** ACTIVATE SENSOR *****");
       activate_sensor();
+      process_start(&tcs3772_process, 0);
     } else {
       TRACE("**** DEACTIVATE SENSOR *****");
       deactivate_sensor();
+      process_exit(&tcs3772_process);
     }
     return 1;
   }
   return 0;
+}
+/*---------------------------------------------------------------------------*/
+#define TCS3772_READ_INTERVAL (CLOCK_SECOND / 50)
+
+PROCESS_THREAD(tcs3772_process, ev, data)
+{
+  static struct etimer et;
+
+  PROCESS_BEGIN();
+
+  etimer_set(&et, TCS3772_READ_INTERVAL);
+
+  while(1) {
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+
+    tcs3772_read_all(&sensor_data);
+
+    etimer_restart(&et);
+  }
+
+  PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
 SENSORS_SENSOR(rgbc_sensor, "RGBC Sensor", value, configure, status);
