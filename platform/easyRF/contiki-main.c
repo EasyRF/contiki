@@ -25,7 +25,7 @@
 #define BOARD_STRING  BOARD_NAME
 
 
-SENSORS(0);
+SENSORS(&rgbc_sensor);
 
 /*---------------------------------------------------------------------------*/
 static void
@@ -104,23 +104,15 @@ main(void)
 
   clock_wait(CLOCK_SECOND * 5);
 
-//  INFO("Starting");
-
-//  tcs3772_init();
-
-//  while (1) {
-//    clock_wait(CLOCK_SECOND * 5);
-//    tcs3772_read_status();
-//  }
+  INFO("Main CPU clock: %ld", system_cpu_clock_get_hz());
 
   process_init();
 
-  watchdog_init();
-  watchdog_start();
+//  watchdog_init();
+//  watchdog_start();
 
   rtimer_init();
 
-  INFO("Main CPU clock: %ld", system_cpu_clock_get_hz());
   INFO(CONTIKI_VERSION_STRING);
   INFO(BOARD_STRING);
   INFO(" Net: %s", NETSTACK_NETWORK.name);
@@ -148,9 +140,10 @@ main(void)
   energest_init();
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
+  process_start(&sensors_process, NULL);
+
   autostart_start(autostart_processes);
 
-  process_start(&sensors_process, NULL);
 
   while(1) {
     uint8_t r;
