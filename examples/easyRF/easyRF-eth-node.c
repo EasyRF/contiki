@@ -47,7 +47,7 @@ PROCESS_THREAD(http_post_process, ev, data)
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
     if (sensor_data_valid) {
-      http_socket_post(&hs, "http://192.168.1.36:9000/api/devices/1",
+      http_socket_post(&hs, "http://10.0.0.1:9999/api/devices/1",
                        sensor_data, strlen((const char *)sensor_data),
                        "application/json", http_socket_callback, 0);
     } else {
