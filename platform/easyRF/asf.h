@@ -124,4 +124,11 @@
 #include <i2c_common.h>
 #include <i2c_master.h>
 
+// From module: TC
+#include <tc.h>
+#include <tc_interrupt.h>
+
+// From module TCC
+#include <tcc.h>
+
 #endif // ASF_H
