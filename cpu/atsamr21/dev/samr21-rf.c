@@ -14,15 +14,15 @@
 
 #include "log.h"
 
-//#undef TRACE
-//#define TRACE(...)
+#undef TRACE
+#define TRACE(...)
 
 
 #define PHY_STATUS_UNKNOWN            255
 #define SAMR21_MAX_TX_POWER_REG_VAL   0x1f
 
-#define ANTENNA_0   0x01
-#define ANTENNA_1   0x02
+#define ON_BOARD_ANTENNA    0x01
+#define EXTERNAL_ANTENNA    0x02
 
 /*---------------------------------------------------------------------------*/
 
@@ -92,7 +92,7 @@ init(void)
   PHY_Init();
 
   /* Enable antenna switch and select antenna 1 */
-  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | ANTENNA_0);
+  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | ON_BOARD_ANTENNA);
 
   /* Enable RX SAFE mode */
   trx_reg_write(TRX_CTRL_2_REG, (1 << RX_SAFE_MODE));
@@ -205,7 +205,7 @@ read(void *buf, unsigned short buf_len)
       return 0;
     }
 
-    TRACE("received: %d bytes, rssi: %d", len, rx_rssi);
+    INFO("received: %d bytes, rssi: %d", len, rx_rssi);
 
     /* Store the length of the packet */
     packetbuf_set_datalen(len);
@@ -432,6 +432,7 @@ set_value(radio_param_t param, radio_value_t value)
     return RADIO_RESULT_OK;
   case RADIO_PARAM_TXPOWER:
     if(value < OUTPUT_POWER_MIN || value > OUTPUT_POWER_MAX) {
+      WARN("Invalid TX power value");
       return RADIO_RESULT_INVALID_VALUE;
     }
 
