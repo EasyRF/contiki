@@ -68,7 +68,7 @@
 #define SLAVE_ADDRESS           0x29
 
 /* Number of times to retry I2C read/writes */
-#define TIMEOUT                 1000
+#define TIMEOUT                 10
 
 
 struct read_only_regs {
