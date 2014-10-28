@@ -205,7 +205,7 @@ read(void *buf, unsigned short buf_len)
       return 0;
     }
 
-    INFO("received: %d bytes, rssi: %d", len, rx_rssi);
+    TRACE("received: %d bytes, rssi: %d", len, rx_rssi);
 
     /* Store the length of the packet */
     packetbuf_set_datalen(len);

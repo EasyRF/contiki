@@ -2,8 +2,8 @@
 #include "sensor_tcs3772.h"
 #include "log.h"
 
-#undef TRACE
-#define TRACE(...)
+//#undef TRACE
+//#define TRACE(...)
 
 /* Bitshift helper */
 #define BM(pos)                 ((uint32_t)1 << pos)
@@ -216,6 +216,16 @@ tcs3772_init(void)
   uint8_t id;
   struct i2c_master_config config_i2c_master;
 
+  struct port_config pin_conf;
+  port_get_config_defaults(&pin_conf);
+  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
+  port_pin_set_config(PIN_PA13, &pin_conf);
+
+  for (int i = 0; i < 1000; i++) {
+    port_pin_toggle_output_level(PIN_PA13);
+    clock_wait(CLOCK_SECOND / 1000);
+  }
+
   /* Initialize config structure and software module. */
   i2c_master_get_config_defaults(&config_i2c_master);
 
@@ -265,7 +275,8 @@ deactivate_sensor(void)
 static int
 value(int type)
 {
-  struct read_only_regs sensor_data;
+  struct read_only_regs sensor_data = {0,0,0,0,0,0,0};
+
   if (!tcs3772_read_all(&sensor_data)) {
     WARN("read error");
   }
