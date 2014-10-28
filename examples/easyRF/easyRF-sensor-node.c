@@ -10,7 +10,7 @@
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
-#define SEND_INTERVAL     1 * CLOCK_SECOND
+#define SEND_INTERVAL     (CLOCK_SECOND / 2)
 #define MAX_PAYLOAD_LEN   40
 
 static struct uip_udp_conn *client_conn;
@@ -27,6 +27,15 @@ tcpip_handler(void)
     str = uip_appdata;
     str[uip_datalen()] = '\0';
     printf("Response from the server: '%s'\n", str);
+
+    if (uip_datalen() > 0) {
+      char ledState = str[uip_datalen() - 1];
+      if (ledState == '1') {
+        leds_on(LEDS_WHITE);
+      } else {
+        leds_off(LEDS_WHITE);
+      }
+    }
   }
 }
 /*---------------------------------------------------------------------------*/
