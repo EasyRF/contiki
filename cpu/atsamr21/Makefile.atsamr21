@@ -153,7 +153,6 @@ CONTIKI_CPU_DIRS += $(ASF_RF)/services/trx_access
 CONTIKI_CPU_DIRS += $(ASF_RF)/services/sal/at86rf2xx/src $(ASF_RF)/services/sal/inc
 CONTIKI_CPU_DIRS += $(ASF_RF)/avr2130_lwmesh/source/phy/at86rf233/src $(ASF_RF)/avr2130_lwmesh/source/phy/at86rf233/inc
 CONTIKI_CPU_SOURCEFILES += trx_access.c
-CONTIKI_CPU_SOURCEFILES += phy.c
 CONTIKI_CPU_SOURCEFILES += sal.c
 
 # ASF Contiki glue files

@@ -2,7 +2,6 @@
 
 /* at86rf233 includes */
 #include "trx_access.h"
-#include "phy.h"
 #include "at86rf233.h"
 
 /* Contiki includes */
@@ -14,15 +13,23 @@
 
 #include "log.h"
 
-#undef TRACE
-#define TRACE(...)
+//#undef TRACE
+//#define TRACE(...)
 
+#define RSSI_BASE_VAL   -94
+#define PHY_CRC_SIZE    2
 
-#define PHY_STATUS_UNKNOWN            255
 #define SAMR21_MAX_TX_POWER_REG_VAL   0x1f
 
 #define ON_BOARD_ANTENNA    0x01
 #define EXTERNAL_ANTENNA    0x02
+
+typedef enum {
+  PHY_STATE_INITIAL,
+  PHY_STATE_IDLE,
+  PHY_STATE_SLEEP,
+  PHY_STATE_TX_WAIT_END,
+} PhyState_t;
 
 /*---------------------------------------------------------------------------*/
 
@@ -32,15 +39,20 @@ static const int tx_power_dbm[SAMR21_MAX_TX_POWER_REG_VAL] = {4, 3.7, 3.4, 3, 2.
 #define OUTPUT_POWER_MAX  tx_power_dbm[0]
 
 static uint8_t initialized;
-static uint8_t rx_on;
+static volatile PhyState_t phyState = PHY_STATE_INITIAL;
+static volatile bool phyRxState;
 
 static uint8_t tx_buffer[PACKETBUF_SIZE];
-static volatile uint8_t tx_status;
+static volatile uint8_t trac_status;
 
 static uint8_t rx_buffer[PACKETBUF_SIZE];
 static volatile uint8_t rx_size;
 static volatile uint8_t rx_lqi;
 static volatile int8_t rx_rssi;
+
+
+static void samr21_interrupt_handler(void);
+
 
 /*---------------------------------------------------------------------------*/
 PROCESS(samr21_rf_process, "SAMR21 RF driver");
@@ -69,7 +81,7 @@ gpio_init(void)
   /* Enable APB Clock for RFCTRL */
   PM->APBCMASK.reg |= (1<<PM_APBCMASK_RFCTRL_Pos);
 
-  /* Unclear ?? */
+  /* Setup RF Control register for controlling antenna selection */
   REG_RFCTRL_FECFG = RFCTRL_CFG_ANT_DIV;
   struct system_pinmux_config config_pinmux;
   system_pinmux_get_config_defaults(&config_pinmux);
@@ -77,6 +89,18 @@ gpio_init(void)
   config_pinmux.direction    = SYSTEM_PINMUX_PIN_DIR_OUTPUT;
   system_pinmux_pin_set_config(PIN_RFCTRL1, &config_pinmux);
   system_pinmux_pin_set_config(PIN_RFCTRL2, &config_pinmux);
+}
+/*---------------------------------------------------------------------------*/
+static void
+phyTrxSetState(uint8_t state)
+{
+//  do { trx_reg_write(TRX_STATE_REG, TRX_CMD_FORCE_TRX_OFF);
+//  } while (TRX_STATUS_TRX_OFF !=
+//      (trx_reg_read(TRX_STATUS_REG) & TRX_STATUS_MASK));
+
+  do { trx_reg_write(TRX_STATE_REG,
+           state); } while (state !=
+      (trx_reg_read(TRX_STATUS_REG) & TRX_STATUS_MASK));
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -89,32 +113,41 @@ init(void)
   gpio_init();
 
   /* Initialize transceiver */
-  PHY_Init();
+  trx_spi_init();
+  PhyReset();
+  phyRxState = false;
+  phyState = PHY_STATE_IDLE;
+
+  /* Turn radio off */
+  do {
+    trx_reg_write(TRX_STATE_REG, TRX_CMD_TRX_OFF);
+  }
+  while ((trx_reg_read(TRX_STATUS_REG) & TRX_STATUS_MASK) != TRX_STATUS_TRX_OFF);
+
+  /* Auto generate CRC, Enable monitor IRQ status, always show interrupt in status register */
+  trx_reg_write(TRX_CTRL_1_REG, (1 << TX_AUTO_CRC_ON) | (3 << SPI_CMD_MODE) | (1 << IRQ_MASK_MODE));
+
+  /* Enable frame buffer protection and keep OQPSK_SCRAM_EN bit on its reset value */
+  trx_reg_write(TRX_CTRL_2_REG, (1 << RX_SAFE_MODE) | (1 << OQPSK_SCRAM_EN));
 
   /* Enable antenna switch and select antenna 1 */
   trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | ON_BOARD_ANTENNA);
 
-  /* Enable RX SAFE mode */
-  trx_reg_write(TRX_CTRL_2_REG, (1 << RX_SAFE_MODE));
-
-  /* Set random SEED for CSMA-CA */
-  seed = PHY_RandomReq();
-  trx_reg_write(CSMA_SEED_0_REG, seed & 0xff);
-  trx_reg_write(CSMA_SEED_1_REG, trx_reg_read(CSMA_SEED_1_REG) | ((seed >> 8) & 0x07));
-
   /* Install transceiver interrupt handler */
-  trx_irq_init(PHY_TaskHandler);
+  trx_irq_init(samr21_interrupt_handler);
 
   /* Enable TRX_END interrupt */
   trx_reg_write(IRQ_MASK_REG, (1 << TRX_END));
-
-  /* Set default channel */
-  PHY_SetChannel(SAMR21_RF_CHANNEL);
 
   /* Start a process for handling incoming RF packets */
   process_start(&samr21_rf_process, NULL);
 
   initialized = 1;
+
+  /* Set random SEED for CSMA-CA */
+  seed = samr21_random_rand();
+  trx_reg_write(CSMA_SEED_0_REG, seed & 0xff);
+  trx_reg_write(CSMA_SEED_1_REG, trx_reg_read(CSMA_SEED_1_REG) | ((seed >> 8) & 0x07));
 
   /* Notify user */
   INFO("at86rf233 initialized");
@@ -143,7 +176,7 @@ static int
 prepare(const void *payload, unsigned short payload_len)
 {
   /* Set payload length in first byte of tx_buffer */
-  tx_buffer[0] = payload_len;
+  tx_buffer[0] = payload_len + 2;
 
   /* Copy payload to tx_buffer */
   memcpy(&tx_buffer[1], payload, payload_len);
@@ -154,30 +187,31 @@ prepare(const void *payload, unsigned short payload_len)
 static int
 transmit(unsigned short transmit_len)
 {
-  /* Reset tx_status */
-  tx_status = PHY_STATUS_UNKNOWN;
+  phyTrxSetState(TRX_CMD_TX_ARET_ON);
 
-  /* Make sure we're not receiving a packet */
-  if (receiving_packet() || pending_packet()) {
-    WARN("Aborting transmit");
-    return RADIO_TX_COLLISION;
-  }
+  trx_reg_read(IRQ_STATUS_REG);
 
-  /* PHY_DataReq expects the payload length in the first byte */
-  PHY_DataReq(tx_buffer);
+  /* size of the buffer is sent as first byte of the data so, data starts from second byte */
+  trx_frame_write(tx_buffer, (tx_buffer[0] - 1) /* length value*/);
 
-  TRACE("transmitting %d bytes", transmit_len);
+  phyState = PHY_STATE_TX_WAIT_END;
+
+  TRX_SLP_TR_HIGH();
+  TRX_TRIG_DELAY();
+  TRX_SLP_TR_LOW();
 
   /* Wait for tx result */
-  while (tx_status == PHY_STATUS_UNKNOWN);
+  while (phyState == PHY_STATE_TX_WAIT_END);
 
-  if (tx_status == PHY_STATUS_SUCCESS) {
+  TRACE("transmitted %d bytes", transmit_len);
+
+  if (trac_status == TRAC_STATUS_SUCCESS) {
     TRACE("RADIO_TX_OK");
     return RADIO_TX_OK;
-  } else if (tx_status == PHY_STATUS_NO_ACK) {
+  } else if (trac_status == TRAC_STATUS_NO_ACK) {
     WARN("RADIO_TX_NOACK");
     return RADIO_TX_NOACK;
-  } else if (tx_status == PHY_STATUS_CHANNEL_ACCESS_FAILURE) {
+  } else if (trac_status == TRAC_STATUS_CHANNEL_ACCESS_FAILURE) {
     WARN("RADIO_TX_COLLISION");
     return RADIO_TX_COLLISION;
   } else {
@@ -211,7 +245,7 @@ read(void *buf, unsigned short buf_len)
     packetbuf_set_datalen(len);
 
     /* Store data of the packet buffer */
-    memcpy(buf, rx_buffer, len);
+    memcpy(buf, rx_buffer + 1, len);
 
     /* Store RSSI in dBm for the received packet */
     packetbuf_set_attr(PACKETBUF_ATTR_RSSI, rx_rssi);
@@ -238,11 +272,8 @@ on(void)
 {
   TRACE("on");
 
-  while (receiving_packet());
-
-  PHY_SetRxState(true);
-
-  rx_on = 1;
+  phyRxState = true;
+  phyTrxSetState(TRX_CMD_RX_AACK_ON);
 
   return 0;
 }
@@ -252,11 +283,8 @@ off(void)
 {
   TRACE("off");
 
-  while (receiving_packet());
-
-  PHY_SetRxState(false);
-
-  rx_on = 0;
+  phyRxState = false;
+  phyTrxSetState(TRX_CMD_TRX_OFF);
 
   return 0;
 }
@@ -265,6 +293,15 @@ static uint8_t
 get_channel(void)
 {
   return (trx_reg_read(PHY_CC_CCA_REG) & SAMR21_CCA_CHANNEL_MASK);
+}
+/*---------------------------------------------------------------------------*/
+static void
+set_channel(uint8_t channel)
+{
+  uint8_t reg;
+
+  reg = trx_reg_read(PHY_CC_CCA_REG) & ~0x1f;
+  trx_reg_write(PHY_CC_CCA_REG, reg | channel);
 }
 /*---------------------------------------------------------------------------*/
 static uint16_t
@@ -279,6 +316,15 @@ get_pan_id(void)
   return pan_id;
 }
 /*---------------------------------------------------------------------------*/
+static void
+set_pan_id(uint16_t panId)
+{
+  uint8_t *d = (uint8_t *)&panId;
+
+  trx_reg_write(PAN_ID_0_REG, d[0]);
+  trx_reg_write(PAN_ID_1_REG, d[1]);
+}
+/*---------------------------------------------------------------------------*/
 static uint16_t
 get_short_addr(void)
 {
@@ -289,6 +335,15 @@ get_short_addr(void)
   d[1] = trx_reg_read(SHORT_ADDR_1_REG);
 
   return short_id;
+}
+/*---------------------------------------------------------------------------*/
+static void
+set_short_addr(uint16_t addr)
+{
+  uint8_t *d = (uint8_t *)&addr;
+
+  trx_reg_write(SHORT_ADDR_0_REG, d[0]);
+  trx_reg_write(SHORT_ADDR_1_REG, d[1]);
 }
 /*---------------------------------------------------------------------------*/
 /* Returns the current TX power in dBm */
@@ -304,28 +359,10 @@ get_tx_power(void)
   }
 }
 /*---------------------------------------------------------------------------*/
-/* Returns the current CCA threshold in dBm */
-/* P_THRES[dBm] = RSSI_BASE_VAL[dBm] + 2[dB] x CCA_ED_THRES */
-static radio_value_t
-get_cca_threshold(void)
-{
-  uint8_t cca_ed_thres = trx_reg_read(CCA_THRES_REG) & 0x0f;
-  return PHY_RSSI_BASE_VAL + 2 * cca_ed_thres;
-}
-/*---------------------------------------------------------------------------*/
-/* Set the current CCA threshold in dBm */
-/* CCA_ED_THRES = (P_THRES[dBm] - RSSI_BASE_VAL[dBm]) / 2 */
-static void
-set_cca_threshold(radio_value_t value)
-{
-  uint8_t cca_ed_thres = (value - PHY_RSSI_BASE_VAL) / 2;
-  trx_reg_write(CCA_THRES_REG, cca_ed_thres & 0x0f);
-}
-/*---------------------------------------------------------------------------*/
 static void
 set_tx_power(radio_value_t requested_tx_power)
 {
-  uint8_t i;
+  uint8_t i, reg;
 
   /* Iterate the power modes in increasing order,
    * stop when power exceeds the requested value
@@ -336,7 +373,54 @@ set_tx_power(radio_value_t requested_tx_power)
     }
   }
 
-  PHY_SetTxPower(i);
+  reg = trx_reg_read(PHY_TX_PWR_REG) & ~0x0f;
+  trx_reg_write(PHY_TX_PWR_REG, reg | i);
+}
+/*---------------------------------------------------------------------------*/
+/* Returns the current CCA threshold in dBm */
+/* P_THRES[dBm] = RSSI_BASE_VAL[dBm] + 2[dB] x CCA_ED_THRES */
+static radio_value_t
+get_cca_threshold(void)
+{
+  uint8_t cca_ed_thres = trx_reg_read(CCA_THRES_REG) & 0x0f;
+  return RSSI_BASE_VAL + 2 * cca_ed_thres;
+}
+/*---------------------------------------------------------------------------*/
+/* Set the current CCA threshold in dBm */
+/* CCA_ED_THRES = (P_THRES[dBm] - RSSI_BASE_VAL[dBm]) / 2 */
+static void
+set_cca_threshold(radio_value_t value)
+{
+  uint8_t cca_ed_thres = (value - RSSI_BASE_VAL) / 2;
+  trx_reg_write(CCA_THRES_REG, cca_ed_thres & 0x0f);
+}
+/*---------------------------------------------------------------------------*/
+static int8_t
+get_energy_level(void)
+{
+  uint8_t ed;
+
+  TRACE("get energy level");
+
+  bool rx_was_on = phyRxState;
+
+  if (!rx_was_on) {
+    phyTrxSetState(TRX_CMD_RX_ON);
+  }
+
+
+  trx_reg_write(PHY_ED_LEVEL_REG, 0);
+
+  while (0 == (trx_reg_read(IRQ_STATUS_REG) & (1 << CCA_ED_DONE))) {
+  }
+
+  ed = (int8_t)trx_reg_read(PHY_ED_LEVEL_REG);
+
+  if (!rx_was_on) {
+    phyTrxSetState(TRX_CMD_TRX_OFF);
+  }
+
+  return ed + RSSI_BASE_VAL;
 }
 /*---------------------------------------------------------------------------*/
 static radio_result_t
@@ -348,7 +432,7 @@ get_value(radio_param_t param, radio_value_t *value)
 
   switch(param) {
   case RADIO_PARAM_POWER_MODE:
-    *value = rx_on == 0 ? RADIO_POWER_MODE_OFF : RADIO_POWER_MODE_ON;
+    *value = phyRxState ? RADIO_POWER_MODE_ON : RADIO_POWER_MODE_OFF;
     return RADIO_RESULT_OK;
   case RADIO_PARAM_CHANNEL:
     *value = (radio_value_t)get_channel();
@@ -374,8 +458,7 @@ get_value(radio_param_t param, radio_value_t *value)
     return RADIO_RESULT_OK;
   case RADIO_PARAM_RSSI:
     TRACE("RADIO_PARAM_RSSI");
-    while (receiving_packet());
-    *value = PHY_EdReq();
+    *value = get_energy_level();
     return RADIO_RESULT_OK;
   case RADIO_CONST_CHANNEL_MIN:
     *value = SAMR21_RF_CHANNEL_MIN;
@@ -413,13 +496,13 @@ set_value(radio_param_t param, radio_value_t value)
        value > SAMR21_RF_CHANNEL_MAX) {
       return RADIO_RESULT_INVALID_VALUE;
     }
-    PHY_SetChannel(value);
+    set_channel(value);
     return RADIO_RESULT_OK;
   case RADIO_PARAM_PAN_ID:
-    PHY_SetPanId(value & 0xffff);
+    set_pan_id(value & 0xffff);
     return RADIO_RESULT_OK;
   case RADIO_PARAM_16BIT_ADDR:
-    PHY_SetShortAddr(value & 0xffff);
+    set_short_addr(value & 0xffff);
     return RADIO_RESULT_OK;
   case RADIO_PARAM_RX_MODE:
     if(value & ~(RADIO_RX_MODE_ADDRESS_FILTER |
@@ -504,30 +587,37 @@ const struct radio_driver samr21_rf_driver =
   set_object
 };
 /*---------------------------------------------------------------------------*/
-void
-PHY_DataConf(uint8_t status)
+static void
+samr21_interrupt_handler(void)
 {
-  /* Transmit callback */
-
-  /* Store transmit result, which will unblock the transmit function */
-  tx_status = status;
-}
-/*---------------------------------------------------------------------------*/
-void
-PHY_DataInd(PHY_DataInd_t *ind)
-{
-  /* Receive callback */
-
-  /* Copy rx data and attributes */
-  if (ind->size > 0) {
-    rx_size = ind->size;
-    rx_rssi = ind->rssi;
-    rx_lqi  = ind->lqi;
-    memcpy(rx_buffer, ind->data, rx_size);
+  if (PHY_STATE_SLEEP == phyState) {
+    return;
   }
 
-  /* Poll the process */
-  process_poll(&samr21_rf_process);
+  if (trx_reg_read(IRQ_STATUS_REG) & (1 << TRX_END)) {
+    if (PHY_STATE_IDLE == phyState) {
+      uint8_t size;
+
+      rx_rssi = (int8_t)trx_reg_read(PHY_ED_LEVEL_REG) + RSSI_BASE_VAL;
+
+      trx_frame_read(&size, 1);
+      trx_frame_read(rx_buffer, size + 2);
+
+      rx_size = size - PHY_CRC_SIZE;
+      rx_lqi = rx_buffer[size + 1];
+
+      /* Poll the process */
+      process_poll(&samr21_rf_process);
+    } else if (PHY_STATE_TX_WAIT_END == phyState) {
+      trac_status = (trx_reg_read(TRX_STATE_REG) >> TRAC_STATUS) & 7;
+
+      if (phyRxState) {
+        phyTrxSetState(TRX_CMD_RX_AACK_ON);
+      }
+
+      phyState = PHY_STATE_IDLE;
+    }
+  }
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(samr21_rf_process, ev, data)
@@ -559,8 +649,27 @@ samr21_random_rand(void)
 {
   if (initialized) {
     TRACE("samr21_random_rand");
-    while (receiving_packet());
-    return PHY_RandomReq();
+
+    uint16_t rnd = 0;
+    uint8_t rndValue;
+
+    bool rx_was_on = phyRxState;
+
+    if (!rx_was_on) {
+      on();
+    }
+
+    for (uint8_t i = 0; i < 16; i += 2) {
+      delay_us(RANDOM_NUMBER_UPDATE_INTERVAL);
+      rndValue = (trx_reg_read(PHY_RSSI_REG) >> RND_VALUE) & 3;
+      rnd |= rndValue << i;
+    }
+
+    if (!rx_was_on) {
+      off();
+    }
+
+    return rnd;
   } else {
     WARN("PHY not initialized returning 0 instead of random number");
     return 0;
