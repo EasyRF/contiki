@@ -83,7 +83,7 @@ void dhcp_callback(uint8_t configured)
 {
   if (configured) {
     /* Set us up as a RPL root node. */
-//    simple_rpl_init_dag_immediately();
+    simple_rpl_init_dag_immediately();
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -107,25 +107,6 @@ main(void)
 #endif
 
   INFO("Main CPU clock: %ld", system_cpu_clock_get_hz());
-
-//  struct port_config pin_conf;
-//  port_get_config_defaults(&pin_conf);
-//  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
-//  port_pin_set_config(PIN_PA13, &pin_conf);
-
-//  while (1) {
-//    port_pin_toggle_output_level(PIN_PA13);
-//    clock_wait(CLOCK_SECOND / 10);
-//  }
-
-//  rgbc_sensor.configure(SENSORS_HW_INIT, 1);
-//  rgbc_sensor.configure(SENSORS_ACTIVE, 1);
-
-//  while (1) {
-//    rgbc_sensor.value(RED);
-//    clock_wait(CLOCK_SECOND / 10);
-//  }
-
 
   process_init();
 
