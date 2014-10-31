@@ -32,13 +32,15 @@
 #include "contiki-net.h"
 #include "net/ip/resolv.h"
 
+#include "log.h"
+
 #include <string.h>
 #include <stdbool.h>
 
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
-#define SEND_INTERVAL		1 * CLOCK_SECOND
+#define SEND_INTERVAL		(CLOCK_SECOND / 500)
 #define MAX_PAYLOAD_LEN		40
 
 static struct uip_udp_conn *client_conn;
@@ -54,7 +56,7 @@ tcpip_handler(void)
   if(uip_newdata()) {
     str = uip_appdata;
     str[uip_datalen()] = '\0';
-    printf("Response from the server: '%s'\n", str);
+//    printf("Response from the server: '%s'\n", str);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -64,10 +66,10 @@ timeout_handler(void)
 {
   static int seq_id;
 
-  printf("Client sending to: ");
-  PRINT6ADDR(&client_conn->ripaddr);
+//  PRINTF("Client sending to: ");
+//  PRINT6ADDR(&client_conn->ripaddr);
   sprintf(buf, "Hello %d from the client", ++seq_id);
-  printf(" (msg: %s)\n", buf);
+//  INFO(" (msg: %s)", buf);
 #if SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION
   uip_udp_packet_send(client_conn, buf, UIP_APPDATA_SIZE);
 #else /* SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION */
