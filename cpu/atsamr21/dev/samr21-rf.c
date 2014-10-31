@@ -13,8 +13,8 @@
 
 #include "log.h"
 
-//#undef TRACE
-//#define TRACE(...)
+#undef TRACE
+#define TRACE(...)
 
 /*---------------------------------------------------------------------------*/
 
@@ -180,7 +180,12 @@ transmit(unsigned short transmit_len)
   TRX_SLP_TR_LOW();
 
   /* Wait for tx result */
-  while (phyState == PHY_STATE_TX_WAIT_END);
+  RTIMER_BUSYWAIT_UNTIL((phyState != PHY_STATE_TX_WAIT_END), RTIMER_SECOND);
+
+  if (phyState == PHY_STATE_TX_WAIT_END) {
+    WARN("TX timeout");
+    return RADIO_TX_ERR;
+  }
 
   if (trac_status == TRAC_STATUS_SUCCESS) {
     TRACE("RADIO_TX_OK");
@@ -616,6 +621,9 @@ samr21_interrupt_handler(void)
 
       /* Store LQI */
       rx_lqi = rx_buffer[size + 1];
+
+//      /* Turn of radio */
+//      phyTrxSetState(TRX_CMD_RX_OFF);
 
       /* Poll the process */
       process_poll(&samr21_rf_process);
