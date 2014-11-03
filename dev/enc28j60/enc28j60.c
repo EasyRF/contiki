@@ -444,7 +444,7 @@ enc28j60_init(uint8_t *mac_addr)
   memcpy(enc_mac_addr, mac_addr, 6);
 
   /* Start watchdog process */
-  process_start(&enc_watchdog_process, NULL);
+//  process_start(&enc_watchdog_process, NULL);
 
   reset();
 

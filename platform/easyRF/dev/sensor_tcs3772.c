@@ -2,11 +2,12 @@
 #include "contiki.h"
 #include "contiki-lib.h"
 #include "contiki-net.h"
+#include "i2c_master_interface.h"
 #include "sensor_tcs3772.h"
 #include "log.h"
 
-#undef TRACE
-#define TRACE(...)
+//#undef TRACE
+//#define TRACE(...)
 
 /* Bitshift helper */
 #define BM(pos)                 ((uint32_t)1 << pos)
@@ -70,8 +71,11 @@
 /* Number of times to retry I2C read/writes */
 #define TIMEOUT                 10
 
+/* Update interval */
+#define TCS3772_READ_INTERVAL   (CLOCK_SECOND * 2)
 
-struct read_only_regs {
+
+struct status_regs {
   uint8_t   device_id;
   uint8_t   status;
   uint16_t  cdata;
@@ -82,15 +86,14 @@ struct read_only_regs {
 };
 
 
-static struct i2c_master_module i2c_master_instance;
 static bool sensor_active;
-static struct read_only_regs sensor_data;
+static struct status_regs sensor_data;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(tcs3772_process, "TCS3772 Process");
 /*---------------------------------------------------------------------------*/
 static bool
-tcs3772_read_reg(uint8_t reg, uint8_t * data)
+tcs3772_read_reg(uint8_t reg, uint8_t * data, uint8_t len)
 {
   struct i2c_master_packet packet;
   uint8_t command;
@@ -104,7 +107,7 @@ tcs3772_read_reg(uint8_t reg, uint8_t * data)
   packet.data_length      = 1;
 
   /* Setup write buffer */
-  command = reg | COMMAND_REPEAT | COMMAND_BIT;
+  command = reg | COMMAND_AUTO_INC | COMMAND_BIT;
 
   /* Write buffer to slave until success. */
   timeout = 0;
@@ -118,7 +121,7 @@ tcs3772_read_reg(uint8_t reg, uint8_t * data)
 
   /* Setup read buffer */
   packet.data = data;
-  packet.data_length = sizeof(uint8_t);
+  packet.data_length = len;
   timeout = 0;
   /* Read from slave until success. */
   while (i2c_master_read_packet_wait(&i2c_master_instance, &packet) != STATUS_OK) {
@@ -164,54 +167,14 @@ tcs3772_write_reg(uint8_t reg, uint8_t data)
 }
 /*---------------------------------------------------------------------------*/
 static bool
-tcs3772_read_all(struct read_only_regs * data)
+update_values(void)
 {
-  enum status_code ret;
-  uint16_t timeout = 0;
-  uint8_t command_buffer[1];
-
-  /* Setup buffer and packet struct to start reading at first read-only reg */
-  command_buffer[0] = REG_DEVICE_ID | COMMAND_AUTO_INC | COMMAND_BIT;
-
-  struct i2c_master_packet packet;
-  packet.address          = SLAVE_ADDRESS;
-  packet.ten_bit_address  = false;
-  packet.high_speed       = false;
-  packet.hs_master_code   = 0x0;
-  packet.data             = command_buffer;
-  packet.data_length      = 1;
-
-  /* Write buffer to slave until success. */
-  while ((ret = i2c_master_write_packet_wait_no_stop(&i2c_master_instance, &packet)) != STATUS_OK) {
-    /* Increment timeout counter and check if timed out. */
-    if (timeout++ == TIMEOUT) {
-      WARN("timeout");
-      break;
-    } else {
-      if (ret != 0x12) {
-        TRACE("write attempt failed with 0x%02X, retrying", ret);
-      }
-    }
+  if (!tcs3772_read_reg(REG_DEVICE_ID, (uint8_t *)&sensor_data, sizeof(sensor_data))) {
+    return false;
   }
 
-  /* Read from slave until success. */
-  packet.data = (uint8_t *)data;
-  packet.data_length = sizeof(struct read_only_regs);
-  timeout = 0;
-  while ((ret = i2c_master_read_packet_wait(&i2c_master_instance, &packet)) != STATUS_OK) {
-    /* Increment timeout counter and check if timed out. */
-    if (timeout++ == TIMEOUT) {
-      WARN("timeout");
-      break;
-    } else {
-      if (ret != 0x12) {
-        TRACE("read attempt failed with 0x%02X, retrying", ret);
-      }
-    }
-  }
-
-  TRACE("device_id: 0x%02X, status: 0x%02X, cdata: 0x%04X, rdata: 0x%04X, gdata: 0x%04X, bdata: 0x%04X, pdata: 0x%04X\n",
-         data->device_id, data->status, data->cdata, data->rdata, data->gdata, data->bdata, data->pdata);
+  TRACE("device id: 0x%02X, status: 0x%02X, cdata: 0x%04X, rdata: 0x%04X, gdata: 0x%04X, bdata: 0x%04X, pdata: 0x%04X\n",
+         sensor_data.device_id, sensor_data.status, sensor_data.cdata, sensor_data.rdata, sensor_data.gdata, sensor_data.bdata, sensor_data.pdata);
 
   return true;
 }
@@ -220,33 +183,10 @@ static void
 tcs3772_init(void)
 {
   uint8_t id;
-  struct i2c_master_config config_i2c_master;
 
-  /* Toggle SCL for some time solves I2C periperhal problem */
-  struct port_config pin_conf;
-  port_get_config_defaults(&pin_conf);
-  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
-  port_pin_set_config(PIN_PA13, &pin_conf);
+  i2c_master_interface_init();
 
-  for (int i = 0; i < 1000; i++) {
-    port_pin_toggle_output_level(PIN_PA13);
-    clock_wait(CLOCK_SECOND / 1000);
-  }
-
-  /* Initialize config structure and software module. */
-  i2c_master_get_config_defaults(&config_i2c_master);
-
-  /* Change buffer timeout to something longer. */
-  config_i2c_master.buffer_timeout = 10000;
-  config_i2c_master.baud_rate = 400;
-  config_i2c_master.pinmux_pad0 = SENSORS_I2C_SERCOM_PINMUX_PAD0;
-  config_i2c_master.pinmux_pad1 = SENSORS_I2C_SERCOM_PINMUX_PAD1;
-
-  /* Initialize and enable device with config. */
-  i2c_master_init(&i2c_master_instance, SENSORS_I2C_MODULE, &config_i2c_master);
-  i2c_master_enable(&i2c_master_instance);
-
-  if (tcs3772_read_reg(REG_DEVICE_ID, &id)) {
+  if (tcs3772_read_reg(REG_DEVICE_ID, &id, sizeof(id))) {
     TRACE("id: 0x%02X\n", id);
   }
 
@@ -285,13 +225,13 @@ value(int type)
   uint16_t rgb_max = max(sensor_data.rdata, max(sensor_data.gdata, sensor_data.bdata));
 
   switch(type) {
-  case RED: return sensor_data.rdata;
-  case GREEN: return sensor_data.gdata;
-  case BLUE: return sensor_data.bdata;
-  case CLEAR: return sensor_data.cdata;
-  case RED_BYTE: return ((uint32_t)sensor_data.rdata * 255 / rgb_max);
-  case GREEN_BYTE: return ((uint32_t)sensor_data.gdata * 255 / rgb_max);
-  case BLUE_BYTE: return ((uint32_t)sensor_data.bdata * 255 / rgb_max);
+  case RGBC_RED: return sensor_data.rdata;
+  case RGBC_GREEN: return sensor_data.gdata;
+  case RGBC_BLUE: return sensor_data.bdata;
+  case RGBC_CLEAR: return sensor_data.cdata;
+  case RGBC_RED_BYTE: return ((uint32_t)sensor_data.rdata * 255 / rgb_max);
+  case RGBC_GREEN_BYTE: return ((uint32_t)sensor_data.gdata * 255 / rgb_max);
+  case RGBC_BLUE_BYTE: return ((uint32_t)sensor_data.bdata * 255 / rgb_max);
   default:
     WARN("Invalid property");
     return 0;
@@ -304,7 +244,6 @@ status(int type)
   switch(type) {
   case SENSORS_ACTIVE:
   case SENSORS_READY:
-    TRACE("sensor active: %d", sensor_active);
     return sensor_active;
   }
   return 0;
@@ -315,16 +254,13 @@ configure(int type, int value)
 {
   switch(type) {
   case SENSORS_HW_INIT:
-    TRACE("**** INIT HW ****");
     tcs3772_init();
     return 1;
   case SENSORS_ACTIVE:
     if(value) {
-      TRACE("**** ACTIVATE SENSOR *****");
       activate_sensor();
       process_start(&tcs3772_process, 0);
     } else {
-      TRACE("**** DEACTIVATE SENSOR *****");
       deactivate_sensor();
       process_exit(&tcs3772_process);
     }
@@ -333,8 +269,6 @@ configure(int type, int value)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-#define TCS3772_READ_INTERVAL (CLOCK_SECOND / 50)
-
 PROCESS_THREAD(tcs3772_process, ev, data)
 {
   static struct etimer et;
@@ -346,7 +280,7 @@ PROCESS_THREAD(tcs3772_process, ev, data)
   while(1) {
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
 
-    tcs3772_read_all(&sensor_data);
+    update_values();
 
     etimer_restart(&et);
   }

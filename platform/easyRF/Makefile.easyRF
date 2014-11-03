@@ -28,7 +28,8 @@ CONTIKI_TARGET_SOURCEFILES += leds.c sensors.c
 
 # Platform specific source files
 CONTIKI_TARGET_SOURCEFILES += contiki-main.c leds-arch.c uart_rs232.c uart_rs485.c uart_usb.c
-CONTIKI_TARGET_SOURCEFILES += dbg-arch.c flash_at25df32s.c enc28j60-arch.c lcd_34fpc.c sensor_tcs3772.c
+CONTIKI_TARGET_SOURCEFILES += dbg-arch.c flash_at25df32s.c enc28j60-arch.c lcd_34fpc.c
+CONTIKI_TARGET_SOURCEFILES += i2c_master_interface.c sensor_bmp180.c sensor_tcs3772.c #sensor_joystick.c
 
 # Add platform/target specific files to contiki sourcefiles list
 CONTIKI_SOURCEFILES += $(CONTIKI_TARGET_SOURCEFILES)

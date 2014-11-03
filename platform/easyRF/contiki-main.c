@@ -8,6 +8,8 @@
 #include "dev/serial-line.h"
 #include "dev/lcd_34fpc.h"
 #include "dev/sensor_tcs3772.h"
+#include "dev/sensor_bmp180.h"
+#include "dev/sensor_joystick.h"
 #include "ip64.h"
 #include "lib/random.h"
 #include "net/netstack.h"
@@ -22,10 +24,8 @@
 #include "samr21-rf.h"
 
 
-#define BOARD_STRING  BOARD_NAME
+SENSORS(&pressure_sensor, &rgbc_sensor); //&joystick_sensor
 
-
-SENSORS(&rgbc_sensor);
 
 /*---------------------------------------------------------------------------*/
 static void
@@ -116,7 +116,7 @@ main(void)
   rtimer_init();
 
   INFO(CONTIKI_VERSION_STRING);
-  INFO(BOARD_STRING);
+  INFO(BOARD_NAME);
   INFO(" Net: %s", NETSTACK_NETWORK.name);
   INFO(" MAC: %s", NETSTACK_MAC.name);
   INFO(" RDC: %s", NETSTACK_RDC.name);
@@ -146,6 +146,8 @@ main(void)
 
   autostart_start(autostart_processes);
 
+  SENSORS_ACTIVATE(pressure_sensor);
+  SENSORS_ACTIVATE(rgbc_sensor);
 
   while(1) {
     uint8_t r;

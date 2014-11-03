@@ -131,4 +131,7 @@
 // From module TCC
 #include <tcc.h>
 
+// From module ADC
+#include <adc.h>
+
 #endif // ASF_H
