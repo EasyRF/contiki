@@ -1,7 +1,5 @@
 #include <asf.h>
 #include "contiki.h"
-#include "contiki-lib.h"
-#include "contiki-net.h"
 #include "i2c_master_interface.h"
 #include "sensor_bmp180.h"
 #include "log.h"
@@ -64,9 +62,6 @@ struct calibration_regs {
 /* I2C address of the BMP180 sensor */
 #define SLAVE_ADDRESS           0x77
 
-/* Number of times to retry I2C read/writes */
-#define TIMEOUT                 100
-
 /* Update interval */
 #define BMP180_READ_INTERVAL    (CLOCK_SECOND * 2)
 
@@ -80,92 +75,23 @@ static int32_t pressure;
 PROCESS(bmp180_process, "BMP180 Process");
 /*---------------------------------------------------------------------------*/
 static bool
-bmp180_read_reg(uint8_t reg, uint8_t * data, uint8_t len)
-{
-  struct i2c_master_packet packet;
-  uint16_t timeout;
-
-  /* Setup packet struct */
-  packet.address          = SLAVE_ADDRESS;
-  packet.ten_bit_address  = false;
-  packet.high_speed       = false;
-  packet.hs_master_code   = 0x0;
-
-  /* Setup write buffer and reset timeout */
-  packet.data = &reg;
-  packet.data_length = 1;
-  timeout = 0;
-  /* Write buffer to slave until success. */
-  while (i2c_master_write_packet_wait_no_stop(&i2c_master_instance, &packet) != STATUS_OK) {
-    /* Increment timeout counter and check if timed out. */
-    if (timeout++ == TIMEOUT) {
-      WARN("write timeout");
-      return false;
-    }
-  }
-
-  /* Setup read buffer and reset timeout */
-  packet.data = data;
-  packet.data_length = len;
-  timeout = 0;
-  /* Read from slave until success. */
-  while (i2c_master_read_packet_wait(&i2c_master_instance, &packet) != STATUS_OK) {
-    /* Increment timeout counter and check if timed out. */
-    if (timeout++ == TIMEOUT) {
-      WARN("read timeout");
-      return false;
-    }
-  }
-
-  return true;
-}
-/*---------------------------------------------------------------------------*/
-static bool
-bmp180_write_reg(uint8_t reg, uint8_t data)
-{
-  struct i2c_master_packet packet;
-  uint8_t command[2];
-  uint16_t timeout;
-
-  packet.address          = SLAVE_ADDRESS;
-  packet.ten_bit_address  = false;
-  packet.high_speed       = false;
-  packet.hs_master_code   = 0x0;
-  packet.data             = command;
-  packet.data_length      = 2;
-
-  /* Setup write buffer */
-  command[0] = reg;
-  command[1] = data;
-
-  /* Write buffer to slave until success. */
-  timeout = 0;
-  while (i2c_master_write_packet_wait(&i2c_master_instance, &packet) != STATUS_OK) {
-    /* Increment timeout counter and check if timed out. */
-    if (timeout++ == TIMEOUT) {
-      WARN("timeout");
-      return false;
-    }
-  }
-
-  return true;
-}
-/*---------------------------------------------------------------------------*/
-static bool
 bmp180_init(void)
 {
-  uint8_t id;
+  uint8_t cmd, id;
 
   i2c_master_interface_init();
 
-  if (bmp180_read_reg(REG_CHIP_ID, &id, sizeof(id))) {
-    TRACE("ID: 0x%02X", id);
-  } else {
-    WARN("Failed to read device id");
+  cmd = REG_CHIP_ID;
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &cmd, sizeof(cmd), &id, sizeof(id))) {
     return false;
   }
 
-  bmp180_read_reg(REG_CALIB, (uint8_t *)&calibration_values, sizeof(calibration_values));
+  TRACE("ID: 0x%02X", id);
+
+  cmd = REG_CALIB;
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &cmd, sizeof(cmd), (uint8_t *)&calibration_values, sizeof(calibration_values))) {
+    return false;
+  }
 
   calibration_values.ac1 = BE16_TO_CPU(calibration_values.ac1);
   calibration_values.ac2 = BE16_TO_CPU(calibration_values.ac2);
@@ -198,10 +124,12 @@ bmp180_init(void)
 static bool
 read_uncompensated_temperature(uint16_t * temp)
 {
-  uint8_t msb, lsb;
+  uint8_t read_cmd, write_cmd[2], msb, lsb;
 
   /* Setup measurement control register for reading temperature */
-  if (!bmp180_write_reg(REG_MEAS_CTRL, MEAS_TEMP)) {
+  write_cmd[0] = REG_MEAS_CTRL;
+  write_cmd[1] = MEAS_TEMP;
+  if (!i2c_master_write_reg(SLAVE_ADDRESS, write_cmd, sizeof(write_cmd))) {
     return false;
   }
 
@@ -209,8 +137,14 @@ read_uncompensated_temperature(uint16_t * temp)
   clock_delay_usec(WAIT_TIME_TEMP);
 
   /* Read raw temperature from ADC output register */
-  bmp180_read_reg(REG_OUT_MSB, &msb, 1);
-  bmp180_read_reg(REG_OUT_LSB, &lsb, 1);
+  read_cmd = REG_OUT_MSB;
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &msb, sizeof(msb))) {
+    return false;
+  }
+  read_cmd = REG_OUT_LSB;
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &lsb, sizeof(lsb))) {
+    return false;
+  }
 
   /* Convert bytes to 16-bit value */
   *temp = (((uint16_t)msb << 8) | lsb);
@@ -222,10 +156,12 @@ read_uncompensated_temperature(uint16_t * temp)
 static bool
 read_uncompenstated_pressure(uint32_t * pressure, uint8_t oss)
 {
-  uint8_t msb, lsb, xlsb;
+  uint8_t read_cmd, write_cmd[2], msb, lsb, xlsb;
 
   /* Setup meaurement control register for reading pressure */
-  if (!bmp180_write_reg(REG_MEAS_CTRL, MEAS_PRES | (oss << MEAS_OSS))) {
+  write_cmd[0] = REG_MEAS_CTRL;
+  write_cmd[1] = MEAS_PRES | (oss << MEAS_OSS);
+  if (!i2c_master_write_reg(SLAVE_ADDRESS, write_cmd, sizeof(write_cmd))) {
     return false;
   }
 
@@ -233,9 +169,18 @@ read_uncompenstated_pressure(uint32_t * pressure, uint8_t oss)
   clock_delay_usec(WAIT_TIME_PRESSURE(oss));
 
   /* Read raw pressure from ADC output register */
-  bmp180_read_reg(REG_OUT_MSB, &msb, 1);
-  bmp180_read_reg(REG_OUT_LSB, &lsb, 1);
-  bmp180_read_reg(REG_OUT_XLSB, &xlsb, 1);
+  read_cmd = REG_OUT_MSB;
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &msb, sizeof(msb))) {
+    return false;
+  }
+  read_cmd = REG_OUT_LSB;
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &lsb, sizeof(lsb))) {
+    return false;
+  }
+  read_cmd = REG_OUT_XLSB;
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &xlsb, sizeof(xlsb))) {
+    return false;
+  }
 
   /* Convert bytes to 24-bit value */
   *pressure = (((uint32_t)msb << 16) | ((uint32_t)lsb << 8) | xlsb);

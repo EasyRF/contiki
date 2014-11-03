@@ -1,6 +1,7 @@
 #include "contiki.h"
 #include "contiki-net.h"
 #include "http-socket.h"
+#include "dev/sensor_tcs3772.h"
 #include "log.h"
 
 #define DEBUG DEBUG_PRINT
@@ -44,15 +45,15 @@ PROCESS_THREAD(http_post_process, ev, data)
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
     snprintf((char *)sensor_data, sizeof(sensor_data), "{\"red\":\"%02X\",\"green\":\"%02X\",\"blue\":\"%02X\"}",
-             0,
-             0,
-             0);
+             rgbc_sensor.value(RGBC_RED_BYTE),
+             rgbc_sensor.value(RGBC_GREEN_BYTE),
+             rgbc_sensor.value(RGBC_BLUE_BYTE));
 
-//    http_socket_post(&hs, "http://192.168.2.7:9999/api/devices/1",
-//                     sensor_data, strlen((const char *)sensor_data),
-//                     "application/json", http_socket_callback, 0);
+    http_socket_post(&hs, "http://192.168.2.7:9999/api/devices/1",
+                     sensor_data, strlen((const char *)sensor_data),
+                     "application/json", http_socket_callback, 0);
 
-    http_socket_get(&hs, "http://192.168.2.7:9999/api/devices", http_socket_callback, 0);
+//    http_socket_get(&hs, "http://192.168.2.7:9999/api/devices", http_socket_callback, 0);
 
     etimer_restart(&et);
   }

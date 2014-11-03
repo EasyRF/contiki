@@ -1,7 +1,5 @@
 #include <asf.h>
 #include "contiki.h"
-#include "contiki-lib.h"
-#include "contiki-net.h"
 #include "i2c_master_interface.h"
 #include "sensor_tcs3772.h"
 #include "log.h"
@@ -93,83 +91,12 @@ static struct status_regs sensor_data;
 PROCESS(tcs3772_process, "TCS3772 Process");
 /*---------------------------------------------------------------------------*/
 static bool
-tcs3772_read_reg(uint8_t reg, uint8_t * data, uint8_t len)
-{
-  struct i2c_master_packet packet;
-  uint8_t command;
-  uint16_t timeout;
-
-  packet.address          = SLAVE_ADDRESS;
-  packet.ten_bit_address  = false;
-  packet.high_speed       = false;
-  packet.hs_master_code   = 0x0;
-  packet.data             = &command;
-  packet.data_length      = 1;
-
-  /* Setup write buffer */
-  command = reg | COMMAND_AUTO_INC | COMMAND_BIT;
-
-  /* Write buffer to slave until success. */
-  timeout = 0;
-  while (i2c_master_write_packet_wait_no_stop(&i2c_master_instance, &packet) != STATUS_OK) {
-    /* Increment timeout counter and check if timed out. */
-    if (timeout++ == TIMEOUT) {
-      WARN("timeout");
-      return false;
-    }
-  }
-
-  /* Setup read buffer */
-  packet.data = data;
-  packet.data_length = len;
-  timeout = 0;
-  /* Read from slave until success. */
-  while (i2c_master_read_packet_wait(&i2c_master_instance, &packet) != STATUS_OK) {
-    /* Increment timeout counter and check if timed out. */
-    if (timeout++ == TIMEOUT) {
-      WARN("timeout");
-      return false;
-    }
-  }
-
-  return true;
-}
-/*---------------------------------------------------------------------------*/
-static bool
-tcs3772_write_reg(uint8_t reg, uint8_t data)
-{
-  struct i2c_master_packet packet;
-  uint8_t command[2];
-  uint16_t timeout;
-
-  packet.address          = SLAVE_ADDRESS;
-  packet.ten_bit_address  = false;
-  packet.high_speed       = false;
-  packet.hs_master_code   = 0x0;
-  packet.data             = command;
-  packet.data_length      = 2;
-
-  /* Setup write buffer */
-  command[0] = reg | COMMAND_REPEAT | COMMAND_BIT;
-  command[1] = data;
-
-  /* Write buffer to slave until success. */
-  timeout = 0;
-  while (i2c_master_write_packet_wait(&i2c_master_instance, &packet) != STATUS_OK) {
-    /* Increment timeout counter and check if timed out. */
-    if (timeout++ == TIMEOUT) {
-      WARN("timeout");
-      return false;
-    }
-  }
-
-  return true;
-}
-/*---------------------------------------------------------------------------*/
-static bool
 update_values(void)
 {
-  if (!tcs3772_read_reg(REG_DEVICE_ID, (uint8_t *)&sensor_data, sizeof(sensor_data))) {
+  uint8_t cmd;
+
+  cmd = REG_DEVICE_ID | COMMAND_AUTO_INC | COMMAND_BIT;
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &cmd, sizeof(cmd), (uint8_t *)&sensor_data, sizeof(sensor_data))) {
     return false;
   }
 
@@ -182,15 +109,14 @@ update_values(void)
 static void
 tcs3772_init(void)
 {
-  uint8_t id;
+  uint8_t cmd, id;
 
   i2c_master_interface_init();
 
-  if (tcs3772_read_reg(REG_DEVICE_ID, &id, sizeof(id))) {
+  cmd = REG_DEVICE_ID | COMMAND_BIT;
+  if (i2c_master_read_reg(SLAVE_ADDRESS, &cmd, sizeof(cmd), &id, sizeof(id))) {
     TRACE("id: 0x%02X\n", id);
   }
-
-  tcs3772_write_reg(REG_CONTROL, AGAIN(0));
 
   INFO("tcs3772 initialized");
 }
@@ -198,20 +124,28 @@ tcs3772_init(void)
 static int
 activate_sensor(void)
 {
-  if (!tcs3772_write_reg(REG_ENABLE, ENABLE_PON | ENABLE_AEN | ENABLE_PEN)) {
-    return 0;
+  uint8_t cmd[2];
+
+  cmd[0] = REG_ENABLE | COMMAND_REPEAT |COMMAND_BIT;
+  cmd[1] = ENABLE_PON | ENABLE_AEN | ENABLE_PEN;
+  if (!i2c_master_write_reg(SLAVE_ADDRESS, cmd, sizeof(cmd))) {
+    return false;
   }
 
   sensor_active = true;
 
-  return 1;
+  return true;
 }
 /*---------------------------------------------------------------------------*/
 static int
 deactivate_sensor(void)
 {
-  if (!tcs3772_write_reg(REG_ENABLE, 0x00)) {
-    return 0;
+  uint8_t cmd[2];
+
+  cmd[0] = REG_ENABLE | COMMAND_REPEAT | COMMAND_BIT;
+  cmd[1] = 0x00;
+  if (!i2c_master_write_reg(SLAVE_ADDRESS, cmd, sizeof(cmd))) {
+    return false;
   }
 
   sensor_active = false;
