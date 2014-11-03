@@ -9,7 +9,6 @@
 #include "dev/lcd_34fpc.h"
 #include "dev/sensor_tcs3772.h"
 #include "dev/sensor_bmp180.h"
-#include "dev/sensor_joystick.h"
 #include "ip64.h"
 #include "lib/random.h"
 #include "net/netstack.h"
