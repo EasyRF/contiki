@@ -10,6 +10,7 @@
 #include "dev/sensor_tcs3772.h"
 #include "dev/sensor_bmp180.h"
 #include "dev/sensor_si7020.h"
+#include "dev/sensor_joystick.h"
 #include "ip64.h"
 #include "lib/random.h"
 #include "net/netstack.h"
@@ -24,7 +25,7 @@
 #include "samr21-rf.h"
 
 
-SENSORS(&pressure_sensor, &rgbc_sensor, &rh_sensor); //&joystick_sensor
+SENSORS(&pressure_sensor, &rgbc_sensor, &rh_sensor, &joystick_sensor);
 
 
 /*---------------------------------------------------------------------------*/
@@ -149,6 +150,7 @@ main(void)
   SENSORS_ACTIVATE(pressure_sensor);
   SENSORS_ACTIVATE(rgbc_sensor);
   SENSORS_ACTIVATE(rh_sensor);
+  SENSORS_ACTIVATE(joystick_sensor);
 
   while(1) {
     uint8_t r;
