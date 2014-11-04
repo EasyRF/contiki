@@ -30,7 +30,7 @@
 #include "contiki.h"
 #include "contiki-lib.h"
 #include "contiki-net.h"
-
+#include "dev/leds.h"
 #include "log.h"
 #include <string.h>
 
@@ -56,7 +56,9 @@ tcpip_handler(void)
   if(uip_newdata()) {
     clock_time_t now = clock_time();
 
-    printf("delta: %ld\n", now - previous);
+//    printf("delta: %ld\n", now - previous);
+
+    leds_toggle(LEDS_GREEN);
 
     previous = now;
 //    ((char *)uip_appdata)[uip_datalen()] = 0;
