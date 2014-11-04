@@ -20,9 +20,6 @@
 #include <stdio.h>
 
 
-#define BOARD_STRING  "SAMR21 Xplained Pro"
-
-
 SENSORS(&button_sensor);
 
 
@@ -66,18 +63,23 @@ int
 main(void)
 {
   clock_init();
-  dbg_init();
 
   leds_init();
+  leds_on(LEDS_GREEN);
+
+  dbg_init();
+
+  INFO("Main CPU clock: %ld", system_cpu_clock_get_hz());
 
   process_init();
 
   watchdog_init();
+  watchdog_start();
 
   rtimer_init();
 
   INFO(CONTIKI_VERSION_STRING);
-  INFO(BOARD_STRING);
+  INFO(BOARD_NAME);
   INFO(" Net: %s", NETSTACK_NETWORK.name);
   INFO(" MAC: %s", NETSTACK_MAC.name);
   INFO(" RDC: %s", NETSTACK_RDC.name);
@@ -100,11 +102,9 @@ main(void)
   energest_init();
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
-  autostart_start(autostart_processes);
-
-  watchdog_start();
-
   process_start(&sensors_process, NULL);
+
+  autostart_start(autostart_processes);
 
   while(1) {
     uint8_t r;

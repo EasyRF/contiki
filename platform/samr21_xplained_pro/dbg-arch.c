@@ -93,7 +93,7 @@ dbg_init()
 void
 dbg_uninit(void)
 {
-  usart_disable(&usart_instance);
+//  usart_disable(&usart_instance);
 }
 /*---------------------------------------------------------------------------*/
 int
