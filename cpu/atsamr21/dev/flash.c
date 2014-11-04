@@ -26,9 +26,7 @@ flash_crc16(const struct flash_driver * flash, unsigned long address, uint32_t l
     acc = crc16_data(data, read_len, acc);
     /* Prevent watchdog from expiring */
     watchdog_periodic();
-    if (i % 2048) {
-      leds_toggle(LEDS_GREEN);
-    }
+
     left -= 4;
   }
 

@@ -29,8 +29,6 @@ rtc_compare_callback(void)
 {
   ENERGEST_ON(ENERGEST_TYPE_IRQ);
 
-  leds_toggle(LEDS_GREEN);
-
   rtc_count_disable_callback(&rtc_instance, RTC_COUNT_CALLBACK_COMPARE_0);
 
   rtimer_run_next();

@@ -149,8 +149,6 @@ PROCESS_THREAD(timer_test_process, ev, data)
 
     count = clock_time();
     printf("%lu ticks\n", count);
-
-    leds_toggle(LEDS_RED);
     i++;
   }
 #endif
@@ -166,8 +164,6 @@ PROCESS_THREAD(timer_test_process, ev, data)
 
     sec = clock_seconds();
     printf("%lu seconds\n", sec);
-
-    leds_toggle(LEDS_GREEN);
     i++;
   }
 #endif
