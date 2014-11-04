@@ -46,21 +46,9 @@ AUTOSTART_PROCESSES(&hello_world_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(hello_world_process, ev, data)
 {
-//  static struct etimer et;
-
   PROCESS_BEGIN();
 
   INFO("Hello, world\n");
-
-//  etimer_set(&et, CLOCK_SECOND * 10);
-
-//  while (1) {
-//    PROCESS_YIELD();
-//    if (etimer_expired(&et)) {
-//      leds_toggle(LEDS_RED);
-//      etimer_restart(&et);
-//    }
-//  }
 
   PROCESS_END();
 }
