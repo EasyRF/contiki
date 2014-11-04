@@ -7,6 +7,6 @@
 
 #define AT86RFX_SPI_BAUDRATE		 5000000UL
 
-
+#define RF_CAP_TRIM 0x00
 
 #endif // CONF_BOARD_H
