@@ -147,11 +147,6 @@ main(void)
 
   autostart_start(autostart_processes);
 
-  SENSORS_ACTIVATE(pressure_sensor);
-  SENSORS_ACTIVATE(rgbc_sensor);
-  SENSORS_ACTIVATE(rh_sensor);
-  SENSORS_ACTIVATE(joystick_sensor);
-
   while(1) {
     uint8_t r;
     do {
