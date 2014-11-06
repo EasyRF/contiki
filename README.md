@@ -1,19 +1,73 @@
-The Contiki Operating System
-============================
+#Contiki sources for the Evaluation kit for ERF1000 module
 
-[![Build Status](https://secure.travis-ci.org/contiki-os/contiki.png)](http://travis-ci.org/contiki-os/contiki)
 
-Contiki is an open source operating system that runs on tiny low-power
-microcontrollers and makes it possible to develop applications that
-make efficient use of the hardware while providing standardized
-low-power wireless communication for a range of hardware platforms.
+The ERF1000 module and its Evaluation Kit feature the lastest
+ARM Cortex-M0+ CPU with integrated 2.4 GHz transceiver.
 
-Contiki is used in numerous commercial and non-commercial systems,
-such as city sound monitoring, street lights, networked electrical
-power meters, industrial monitoring, radiation monitoring,
-construction site monitoring, alarm systems, remote house monitoring,
-and so on.
+For more information or to buy a kit or module, see the EasyRF website:
 
-For more information, see the Contiki website:
+[http://shop.top-electronics.eu/evaluation-kit-for-erf1000-module-p-17199.html]()
 
-[http://contiki-os.org](http://contiki-os.org)
+For more information about Contiki, see the Contiki website:
+
+[http://contiki-os.org]()
+
+##Getting started
+
+To get up and running as quickly as possible follow the steps below.
+
+### Install tools
+
+
+To run Contiki on the Evaluation Kit for ERF1000 you will need to install a few things.
+
+#### 1. GCC ARM Embedded
+
+You need this to cross compile software for ARM CPU's. There are pre-build binaries for all major OS'es.
+
+[https://launchpad.net/gcc-arm-embedded](GNU Tools for ARM Embedded Processors)
+
+Make sure the bin directory (containing all tools) is in your PATH
+
+#### 2. Make environment
+
+Most developers will already have make installed. But if not you need to install this.
+
+###### OSX
+
+Install the Command Line Tools you can find them here: [https://developer.apple.com/opensource/]() 
+
+###### Linux
+
+From a terminal run:
+`sudo apt-get install build-essential`
+
+###### Windows
+
+Install the make package from GNUWin32 you can find it here: [http://gnuwin32.sourceforge.net/packages/make.htm]()
+
+#### 3. Atmel Software Framework (ASF)
+
+The CPU and platform drivers for the ERF1000 module are all written on top of the drivers in ASF. Download the latest version from:
+
+[http://www.atmel.com/tools/AVRSOFTWAREFRAMEWORK.aspx]()
+
+#### 4. OpenOCD (optional)
+
+OpenOCD can be used for pogramming binaries into your target.
+Its open source and available for all major OS'es. As of version 0.8.0 the target at91samr21g18 is supported. The latest source code can be downloaded from: [http://sourceforge.net/projects/openocd/files/latest/download?source=files]()
+
+Build instuctions are included in the download.
+
+
+### Get the code
+
+The easiest way to get sources is to install Git on your machine and clone the repository.
+
+`git clone https://github.com/EasyRF/contiki.git`
+
+Alternatively you can download the sources from GitHub as a ZIP-file.
+
+### Build the code
+
+Because the CPU and platfrom drivers depend on ASF you need to 
