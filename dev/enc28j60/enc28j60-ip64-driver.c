@@ -87,7 +87,7 @@ PROCESS_THREAD(enc28j60_ip64_driver_process, ev, data)
   PROCESS_BEGIN();
 
   while(1) {
-    etimer_set(&e, 1);
+    etimer_set(&e, CLOCK_SECOND / 100);
     PROCESS_WAIT_EVENT();
     len = enc28j60_read(ip64_packet_buffer, ip64_packet_buffer_maxlen);
     if(len > 0) {
