@@ -39,6 +39,7 @@ CFLAGS += -DSAL_TYPE=AT86RF2xx
 CFLAGS += -DENABLE_TRX_SRAM
 CFLAGS += -DUDD_ENABLE
 CFLAGS += -DTC_ASYNC=true
+CFLAGS += -D_QTOUCH_
 
 # Compile flags for optimization or debug
 ifeq ($(SMALL),1)
@@ -158,6 +159,14 @@ CONTIKI_CPU_DIRS += $(ASF_RF)/avr2130_lwmesh/source/phy/at86rf233/src $(ASF_RF)/
 CONTIKI_CPU_SOURCEFILES += trx_access.c
 CONTIKI_CPU_SOURCEFILES += sal.c
 
+# QTouch directories and library files
+ASF_QTOUCH = $(ASF_ROOT)/thirdparty/qtouch
+CONTIKI_CPU_DIRS += $(ASF_QTOUCH)/generic/include $(ASF_QTOUCH)/devspecific/sam0/samd/include
+LIB_PATH += -L$(ASF_QTOUCH)/devspecific/sam0/samd/lib/gcc
+LIB_PATH += -L$(ASF_ROOT)/thirdparty/CMSIS/Lib/GCC
+LIBS += -lsamd21_qt_gcc
+LIBS += -larm_cortexM0l_math
+
 # ASF Contiki glue files
 CONTIKI_CPU_SOURCEFILES += log.c clock-arch.c watchdog-arch.c rtimer-arch.c random-arch.c samr21-rf.c flash.c samr21-flash.c
 
@@ -196,7 +205,7 @@ atsamr21.ld: $(CONTIKI_CPU)/atsamr21.lds
 # Rule for linking
 %-firmware.$(TARGET): atsamr21.ld %.co $(PROJECT_OBJECTFILES) $(PROJECT_LIBRARIES) contiki-$(TARGET).a
 	$(TRACE_LD)
-	$(LD) $(LDFLAGS) -T atsamr21.ld ${filter-out %.ld %.a,$^} contiki-$(TARGET).a -lc -lnosys -o $@
+	$(LD) $(LDFLAGS) $(LIB_PATH) -T atsamr21.ld ${filter-out %.ld %.a,$^} contiki-$(TARGET).a $(LIBS) -lc -lnosys -o $@
 	$(SIZE) $@
 	cp $@ $@.elf
 

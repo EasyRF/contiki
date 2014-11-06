@@ -11,6 +11,7 @@
 #include "dev/sensor_bmp180.h"
 #include "dev/sensor_si7020.h"
 #include "dev/sensor_joystick.h"
+#include "dev/sensor_qtouch_wheel.h"
 #include "dev/lcd_34fpc.h"
 #include "ip64.h"
 #include "lib/random.h"
@@ -26,7 +27,7 @@
 #include "samr21-rf.h"
 
 
-SENSORS(&pressure_sensor, &rgbc_sensor, &rh_sensor, &joystick_sensor);
+SENSORS(&pressure_sensor, &rgbc_sensor, &rh_sensor, &touch_wheel_sensor, &joystick_sensor);
 
 
 /*---------------------------------------------------------------------------*/
@@ -96,11 +97,11 @@ main(void)
 
   clock_init();
 
+  lcd_init();
+
   leds_init();
   leds_off(LEDS_WHITE);
   leds_on(LEDS_GREEN);
-
-  lcd_init();
 
   dbg_init();
 

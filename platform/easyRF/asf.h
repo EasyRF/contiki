@@ -132,4 +132,7 @@
 // From module ADC
 #include <adc.h>
 
+// From module: Atmel QTouch Library 5.0 for Atmel SAM4S devices
+#include <touch_api_SAMD.h>
+
 #endif // ASF_H

@@ -137,6 +137,15 @@ void system_board_init(void);
 /** @} */
 
 
+/** \name QTouch timer definitions
+ * @{
+ */
+
+#define TOUCH_TC_MODULE   TC3
+
+/** @} */
+
+
 /** \name 802.15.4 TRX Interface definitions
  * @{
  */
