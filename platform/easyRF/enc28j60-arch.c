@@ -1,7 +1,6 @@
 #include <asf.h>
 #include "contiki.h"
 #include "esd_spi_master.h"
-#include "enc28j60-arch.h"
 #include "log.h"
 
 
@@ -11,9 +10,12 @@ static struct spi_slave_inst slave;
 void
 enc28j60_arch_spi_init(void)
 {
+  struct spi_slave_inst_config slave_dev_config;
+
+  /* Init SPI master interface */
   esd_spi_master_init();
 
-  struct spi_slave_inst_config slave_dev_config;
+  /* Congfigure slave SPI device */
   spi_slave_inst_get_config_defaults(&slave_dev_config);
   slave_dev_config.ss_pin = ETHERNET_CS;
   spi_attach_slave(&slave, &slave_dev_config);

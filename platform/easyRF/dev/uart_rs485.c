@@ -3,7 +3,19 @@
 
 
 static struct usart_module usart_instance;
+static uart_rx_char_callback char_callback;
 
+
+uint16_t rx_char;
+
+static void
+usart_read_callback(const struct usart_module *const usart_module)
+{
+  if (char_callback) {
+    char_callback(rx_char & 0xff);
+  }
+  usart_read_job(&usart_instance, &rx_char);
+}
 /*---------------------------------------------------------------------------*/
 static int
 open(int32_t baudrate, uart_rx_char_callback char_cb, uart_rx_frame_callback frame_cb)
@@ -24,11 +36,19 @@ open(int32_t baudrate, uart_rx_char_callback char_cb, uart_rx_frame_callback fra
 
   usart_enable(&usart_instance);
 
-
   port_get_config_defaults(&pin_conf);
   pin_conf.direction = PORT_PIN_DIR_OUTPUT;
   port_pin_set_config(RS485_TXE, &pin_conf);
   port_pin_set_output_level(RS485_TXE, false);
+
+  char_callback = char_cb;
+
+  usart_register_callback(&usart_instance,
+                          usart_read_callback, USART_CALLBACK_BUFFER_RECEIVED);
+
+  usart_enable_callback(&usart_instance, USART_CALLBACK_BUFFER_RECEIVED);
+
+  usart_read_job(&usart_instance, &rx_char);
 
   return 1;
 }
@@ -78,4 +98,3 @@ const struct uart_driver uart_rs485 =
   write_buffer,
   set_receive_buffer
 };
-

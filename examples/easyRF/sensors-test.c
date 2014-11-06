@@ -5,6 +5,7 @@
 #include "dev/sensor_bmp180.h"
 #include "dev/sensor_si7020.h"
 #include "dev/sensor_tcs3772.h"
+#include "dev/display_st7565s.h"
 
 
 /*---------------------------------------------------------------------------*/
@@ -13,6 +14,7 @@ AUTOSTART_PROCESSES(&sensors_test_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(sensors_test_process, ev, data)
 {
+  static int cnt = 0;
   struct sensors_sensor *sensor;
 
   PROCESS_BEGIN();
@@ -24,6 +26,9 @@ PROCESS_THREAD(sensors_test_process, ev, data)
   SENSORS_ACTIVATE(pressure_sensor);
   SENSORS_ACTIVATE(rgbc_sensor);
   SENSORS_ACTIVATE(rh_sensor);
+
+  displ_drv_st7565s.on();
+  displ_drv_st7565s.set_backlight(1);
 
   while (1) {
     PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event);
@@ -52,6 +57,10 @@ PROCESS_THREAD(sensors_test_process, ev, data)
            rh_sensor.value(SI7020_HUMIDITY),
            rh_sensor.value(SI7020_TEMPERATURE));
     }
+
+    displ_drv_st7565s.set_px(cnt % 128, cnt / 128, 1);
+    displ_drv_st7565s.force_update();
+    cnt++;
   }
 
   PROCESS_END();
