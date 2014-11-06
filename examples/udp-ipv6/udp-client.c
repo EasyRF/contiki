@@ -40,7 +40,7 @@
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
-#define SEND_INTERVAL		(CLOCK_SECOND / 100)
+#define SEND_INTERVAL		(CLOCK_SECOND / 50)
 #define MAX_PAYLOAD_LEN		40
 
 static struct uip_udp_conn *client_conn;

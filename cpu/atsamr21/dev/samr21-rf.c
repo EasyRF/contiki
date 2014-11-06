@@ -689,8 +689,7 @@ init(void)
   trx_reg_write(TRX_CTRL_2_REG, (1 << RX_SAFE_MODE) | (1 << OQPSK_SCRAM_EN));
 
   /* Enable antenna switch and use the antenna diversity algorithm */
-//  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | (1 << ANT_DIV_EN));
-  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | EXTERNAL_ANTENNA);
+  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | (1 << ANT_DIV_EN));
 
   /* Set crystal capacitance value */
   trx_reg_write(XOSC_CTRL_REG, (0xF << XTAL_MODE) | (RF_CAP_TRIM << XTAL_TRIM));
