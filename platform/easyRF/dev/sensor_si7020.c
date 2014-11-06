@@ -5,6 +5,10 @@
 #include "log.h"
 
 
+#undef TRACE
+#define TRACE(...)
+
+
 /* Measure Relative Humidity, Hold Master Mode */
 #define REG_MEAS_HUMID_HOLD       0xE5
 /* Measure Relative Humidity, NO Hold Master Mode */
@@ -46,8 +50,8 @@ PROCESS(si7020_process, "Si7020 Process");
 static bool
 read_serial_id(void)
 {
-  uint8_t id_command_a[] = {REG_CHIP_ID_1};
-  uint8_t id_command_b[] = {REG_CHIP_ID_2};
+  uint8_t id_command_a[2] = {REG_CHIP_ID_1};
+  uint8_t id_command_b[2] = {REG_CHIP_ID_2};
   uint8_t sna[8];
   uint8_t snb[6];
 
@@ -70,10 +74,25 @@ read_serial_id(void)
 }
 /*---------------------------------------------------------------------------*/
 static bool
-read_relative_humidity(void)
+si7020_init(void)
+{
+  i2c_master_interface_init();
+
+  if (!read_serial_id()) {
+    return false;
+  }
+
+  INFO("Si7020 initialized");
+
+  return true;
+}
+/*---------------------------------------------------------------------------*/
+static bool
+update_values(void)
 {
   uint8_t cmd;
   uint16_t rh, temp;
+  int new_relative_humidity, new_temperature;
 
   /* Setup command */
   cmd = REG_MEAS_HUMID_HOLD;
@@ -86,10 +105,10 @@ read_relative_humidity(void)
   rh = BE16_TO_CPU(rh);
 
   /* Convert raw rh value to % RH */
-  relative_humidity = ((125 * (uint32_t)rh) >> 16) - 6;
+  new_relative_humidity = ((125 * (uint32_t)rh) >> 16) - 6;
 
   /* Log */
-  TRACE("relative_humidity: %d", relative_humidity);
+  TRACE("new_relative_humidity: %d", new_relative_humidity);
 
   /* Setup command */
   cmd = REG_READ_PREV_TEMP;
@@ -102,42 +121,25 @@ read_relative_humidity(void)
   temp = BE16_TO_CPU(temp);
 
   /* Convert raw temp value to degrees Celcius */
-  temperature = ((176 * (int32_t)temp) >> 16) - 47;
+  new_temperature = ((176 * (int32_t)temp) >> 16) - 47;
 
   /* Log */
-  TRACE("temperature: %d", temperature);
+  TRACE("new_temperature: %d", new_temperature);
+
+  if (new_relative_humidity != relative_humidity ||
+      new_temperature != temperature) {
+    relative_humidity = new_relative_humidity;
+    temperature = new_temperature;
+    sensors_changed(&rh_sensor);
+  }
 
   /* Ok */
-  return true;
-}
-/*---------------------------------------------------------------------------*/
-static bool
-si7020_init(void)
-{
-  i2c_master_interface_init();
-
-  if (!read_serial_id()) {
-    return false;
-  }
-
-  return true;
-}
-/*---------------------------------------------------------------------------*/
-static bool
-update_values(void)
-{
-  if (!read_relative_humidity()) {
-    return false;
-  }
-
   return true;
 }
 /*---------------------------------------------------------------------------*/
 static int
 value(int type)
 {
-  update_values();
-
   switch (type) {
   case SI7020_HUMIDITY: return relative_humidity;
   case SI7020_TEMPERATURE: return temperature;

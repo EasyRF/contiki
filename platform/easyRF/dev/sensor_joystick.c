@@ -2,6 +2,9 @@
 #include "dev/sensor_joystick.h"
 #include "log.h"
 
+#undef TRACE
+#define TRACE(...)
+
 
 /* Reference voltage (mV) */
 #define ADC_REF_VOLTAGE     1650

@@ -4,8 +4,8 @@
 #include "sensor_tcs3772.h"
 #include "log.h"
 
-//#undef TRACE
-//#define TRACE(...)
+#undef TRACE
+#define TRACE(...)
 
 /* Bitshift helper */
 #define BM(pos)                 ((uint32_t)1 << pos)
@@ -93,15 +93,21 @@ PROCESS(tcs3772_process, "TCS3772 Process");
 static bool
 update_values(void)
 {
+  struct status_regs new_sensor_data;
   uint8_t cmd;
 
   cmd = REG_DEVICE_ID | COMMAND_AUTO_INC | COMMAND_BIT;
-  if (!i2c_master_read_reg(SLAVE_ADDRESS, &cmd, sizeof(cmd), (uint8_t *)&sensor_data, sizeof(sensor_data))) {
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &cmd, sizeof(cmd), (uint8_t *)&new_sensor_data, sizeof(new_sensor_data))) {
     return false;
   }
 
   TRACE("device id: 0x%02X, status: 0x%02X, cdata: 0x%04X, rdata: 0x%04X, gdata: 0x%04X, bdata: 0x%04X, pdata: 0x%04X\n",
-         sensor_data.device_id, sensor_data.status, sensor_data.cdata, sensor_data.rdata, sensor_data.gdata, sensor_data.bdata, sensor_data.pdata);
+         new_sensor_data.device_id, new_sensor_data.status, new_sensor_data.cdata, new_sensor_data.rdata, new_sensor_data.gdata, new_sensor_data.bdata, new_sensor_data.pdata);
+
+  if (memcmp(&sensor_data, &new_sensor_data, sizeof(sensor_data)) != 0) {
+    memcpy(&sensor_data, &new_sensor_data, sizeof(sensor_data));
+    sensors_changed(&rgbc_sensor);
+  }
 
   return true;
 }

@@ -4,6 +4,8 @@
 #include "sensor_bmp180.h"
 #include "log.h"
 
+#undef TRACE
+#define TRACE(...)
 
 /* Bitshift helper */
 #define BM(pos)         ((uint32_t)1 << pos)
@@ -199,6 +201,8 @@ update_values(void)
   uint32_t up;
   int16_t oss;
 
+  int32_t new_temperature, new_pressure;
+
   int32_t x1, x2, x3, b3, b5, b6, p;
   uint32_t b4, b7;
 
@@ -208,20 +212,20 @@ update_values(void)
     return false;
   }
 
-  INFO("ut: %d", ut);
+  TRACE("ut: %d", ut);
 
   if (!read_uncompenstated_pressure(&up, oss)) {
     return false;
   }
 
-  INFO("up: %ld", up);
+  TRACE("up: %ld", up);
 
   x1 = ((ut - calibration_values.ac6) * calibration_values.ac5) >> 15;
   x2 = (calibration_values.mc << 11) / (x1 + calibration_values.md);
   b5 = x1 + x2;
-  temperature = (b5 + 8) >> 4;
+  new_temperature = (b5 + 8) >> 4;
 
-  INFO("temperature = %ld", temperature);
+  TRACE("new_temperature = %ld", new_temperature);
 
   b6 = (b5 - 4000);
   x1 = (calibration_values.b2 * ((b6 * b6) >> 12)) >> 11;
@@ -241,9 +245,16 @@ update_values(void)
   x1 = (p >> 8) * (p >> 8);
   x1 = (x1 * 3038) >> 16;
   x2 = (-7357 * p) >> 16;
-  pressure = p + ((x1 + x2 + 3791) >> 4);
+  new_pressure = p + ((x1 + x2 + 3791) >> 4);
 
-  INFO("pressure = %ld", pressure);
+  TRACE("new_pressure = %ld", new_pressure);
+
+  if (new_temperature != temperature ||
+      new_pressure != pressure) {
+    temperature = new_temperature;
+    pressure = new_pressure;
+    sensors_changed(&pressure_sensor);
+  }
 
   return true;
 }
@@ -254,8 +265,8 @@ value(int type)
   update_values();
 
   switch (type) {
-  case TEMPERATURE: return temperature;
-  case PRESSURE: return pressure;
+  case BMP180_TEMPERATURE: return temperature;
+  case BMP180_PRESSURE: return pressure;
   default:
     WARN("Invalid property");
     return 0;
