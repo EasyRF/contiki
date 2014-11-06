@@ -70,7 +70,7 @@ void system_board_init(void);
 #define DISPLAY_CMD_DATA_PIN          PIN_PA22
 #define DISPLAY_BACKLIGHT_PIN         PIN_PA14
 
-#define ESD_SPI_BAUDRATE              1000000
+#define ESD_SPI_BAUDRATE              2000000UL
 
 /** @} */
 
@@ -178,12 +178,12 @@ void system_board_init(void);
 
 
 #define AT86RFX_SPI_CONFIG(config) \
-config.mux_setting = RF_SPI_SERCOM_MUX_SETTING; \
-config.mode_specific.master.baudrate = AT86RFX_SPI_BAUDRATE; \
-config.pinmux_pad0 = RF_SPI_SERCOM_PINMUX_PAD0; \
-config.pinmux_pad1 = PINMUX_UNUSED; \
-config.pinmux_pad2 = RF_SPI_SERCOM_PINMUX_PAD2; \
-config.pinmux_pad3 = RF_SPI_SERCOM_PINMUX_PAD3;
+    config.mux_setting = RF_SPI_SERCOM_MUX_SETTING; \
+    config.mode_specific.master.baudrate = AT86RFX_SPI_BAUDRATE; \
+    config.pinmux_pad0 = RF_SPI_SERCOM_PINMUX_PAD0; \
+    config.pinmux_pad1 = PINMUX_UNUSED; \
+    config.pinmux_pad2 = RF_SPI_SERCOM_PINMUX_PAD2; \
+    config.pinmux_pad3 = RF_SPI_SERCOM_PINMUX_PAD3;
 
 #define AT86RFX_IRQ_CHAN             RF_IRQ_INPUT
 #define AT86RFX_INTC_INIT()          \
