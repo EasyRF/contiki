@@ -21,12 +21,12 @@
 #define RSSI_BASE_VAL                 -94
 #define PHY_CRC_SIZE                  2
 
-#define SAMR21_MAX_TX_POWER_REG_VAL   0x1f
-static const int tx_power_dbm[SAMR21_MAX_TX_POWER_REG_VAL] = {
+#define SAMR21_MAX_TX_POWER_REG_VAL   0x0f
+static const int tx_power_dbm[SAMR21_MAX_TX_POWER_REG_VAL + 1] = {
   4, 3.7, 3.4, 3, 2.5, 2, 1, 0, -1, -2, -3, -4, -6, -8, -12, -17
 };
 
-#define OUTPUT_POWER_MIN  tx_power_dbm[SAMR21_MAX_TX_POWER_REG_VAL - 1]
+#define OUTPUT_POWER_MIN  tx_power_dbm[SAMR21_MAX_TX_POWER_REG_VAL]
 #define OUTPUT_POWER_MAX  tx_power_dbm[0]
 
 
@@ -71,23 +71,13 @@ gpio_init(void)
 {
   struct port_config pin_conf;
 
-  /* Configure output pins, MOSI, SCK, CS, RST, SLP */
+  /* Configure output pins RST and SLP and set level high */
   port_get_config_defaults(&pin_conf);
-  pin_conf.direction  = PORT_PIN_DIR_OUTPUT;
-  port_pin_set_config(AT86RFX_SPI_SCK, &pin_conf);
-  port_pin_set_config(AT86RFX_SPI_MOSI, &pin_conf);
-  port_pin_set_config(AT86RFX_SPI_CS, &pin_conf);
+  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
   port_pin_set_config(AT86RFX_RST_PIN, &pin_conf);
   port_pin_set_config(AT86RFX_SLP_PIN, &pin_conf);
-  port_pin_set_output_level(AT86RFX_SPI_SCK, true);
-  port_pin_set_output_level(AT86RFX_SPI_MOSI, true);
-  port_pin_set_output_level(AT86RFX_SPI_CS, true);
   port_pin_set_output_level(AT86RFX_RST_PIN, true);
   port_pin_set_output_level(AT86RFX_SLP_PIN, true);
-
-  /* Configure input pin MISO */
-  pin_conf.direction  = PORT_PIN_DIR_INPUT;
-  port_pin_set_config(AT86RFX_SPI_MISO, &pin_conf);
 
   /* Enable APB Clock for RFCTRL */
   PM->APBCMASK.reg |= (1<<PM_APBCMASK_RFCTRL_Pos);
@@ -105,10 +95,6 @@ gpio_init(void)
 static void
 phyTrxSetState(uint8_t state)
 {
-//  do { trx_reg_write(TRX_STATE_REG, TRX_CMD_FORCE_TRX_OFF);
-//  } while (TRX_STATUS_TRX_OFF !=
-//      (trx_reg_read(TRX_STATUS_REG) & TRX_STATUS_MASK));
-
   /* Keep writing the wanted state until the status register reflects it */
   do {
     trx_reg_write(TRX_STATE_REG, state);
@@ -365,21 +351,25 @@ get_tx_power(void)
 static void
 set_tx_power(radio_value_t requested_tx_power)
 {
-  uint8_t i, reg;
+  uint8_t i, pwr;
 
   /* Iterate the power modes in increasing order,
    * stop when power exceeds the requested value
    */
-  for (i = SAMR21_MAX_TX_POWER_REG_VAL - 1; i >= 0; i--) {
+  for (i = SAMR21_MAX_TX_POWER_REG_VAL; i >= 0; i--) {
     if (tx_power_dbm[i] > requested_tx_power) {
+      if (i != SAMR21_MAX_TX_POWER_REG_VAL) {
+        i++; /* One power level back */
+      }
       break;
     }
   }
 
   /* Read current register value */
-  reg = trx_reg_read(PHY_TX_PWR_REG) & ~0x0f;
+  pwr = trx_reg_read(PHY_TX_PWR_REG) & ~0x0f;
+
   /* Write updated value */
-  trx_reg_write(PHY_TX_PWR_REG, reg | i);
+  trx_reg_write(PHY_TX_PWR_REG, pwr | i);
 }
 /*---------------------------------------------------------------------------*/
 /* Returns the current CCA threshold in dBm */
@@ -621,9 +611,6 @@ samr21_interrupt_handler(void)
 
       /* Store LQI */
       rx_lqi = rx_buffer[size + 1];
-
-//      /* Turn of radio */
-//      phyTrxSetState(TRX_CMD_RX_OFF);
 
       /* Poll the process */
       process_poll(&samr21_rf_process);
