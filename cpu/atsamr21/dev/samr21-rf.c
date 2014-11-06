@@ -211,7 +211,7 @@ read(void *buf, unsigned short buf_len)
     }
 
     /* Log */
-    TRACE("received: %d bytes, rssi: %d", len, rx_rssi);
+    INFO("received: %d bytes, rssi: %d", len, rx_rssi);
 
     /* Store the length of the packet */
     packetbuf_set_datalen(len);
@@ -412,7 +412,7 @@ get_energy_level(void)
   /* Write some value to ED register to start energy detection */
   trx_reg_write(PHY_ED_LEVEL_REG, 0);
 
-  /* Wait for the status register to reflect ED done */
+  /* Wait for the status register to reflects ED done */
   while (0 == (trx_reg_read(IRQ_STATUS_REG) & (1 << CCA_ED_DONE))) {}
 
   /* Read the measured energy */
@@ -629,30 +629,6 @@ samr21_interrupt_handler(void)
   }
 }
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(samr21_rf_process, ev, data)
-{
-  PROCESS_BEGIN();
-
-  TRACE("samr21_rf_process started");
-
-  while(1) {
-    /* Block until process is polled from the interrupt handler */
-    PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
-
-    /* Clear global packet buffer */
-    packetbuf_clear();
-
-    /* Fill packet buffer with received data and its attributes */
-    /* Be sure a packet has been received by checking the return value */
-    if (read(packetbuf_dataptr(), PACKETBUF_SIZE) > 0) {
-      /* Let the network stack process the packet */
-      NETSTACK_RDC.input();
-    }
-  }
-
-  PROCESS_END();
-}
-/*---------------------------------------------------------------------------*/
 static uint16_t
 get_rnd_value(void)
 {
@@ -703,6 +679,9 @@ init(void)
   /* Turn radio off */
   phyTrxSetState(TRX_CMD_TRX_OFF);
 
+  /* Set CLKM to 8 MHz */
+  trx_reg_write(TRX_CTRL_0_REG, 0x04);
+
   /* Auto generate CRC, Enable monitor IRQ status, always show interrupt in status register */
   trx_reg_write(TRX_CTRL_1_REG, (1 << TX_AUTO_CRC_ON) | (3 << SPI_CMD_MODE) | (1 << IRQ_MASK_MODE));
 
@@ -710,7 +689,8 @@ init(void)
   trx_reg_write(TRX_CTRL_2_REG, (1 << RX_SAFE_MODE) | (1 << OQPSK_SCRAM_EN));
 
   /* Enable antenna switch and use the antenna diversity algorithm */
-  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | (1 << ANT_DIV_EN));
+//  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | (1 << ANT_DIV_EN));
+  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | EXTERNAL_ANTENNA);
 
   /* Set crystal capacitance value */
   trx_reg_write(XOSC_CTRL_REG, (0xF << XTAL_MODE) | (RF_CAP_TRIM << XTAL_TRIM));
@@ -721,9 +701,6 @@ init(void)
   /* Enable TRX_END interrupt */
   trx_reg_write(IRQ_MASK_REG, (1 << TRX_END));
 
-  /* Start a process for handling incoming RF packets */
-  process_start(&samr21_rf_process, NULL);
-
   /* Set random SEED for CSMA-CA */
   rnd_seed = get_rnd_value();
 
@@ -731,10 +708,37 @@ init(void)
   trx_reg_write(CSMA_SEED_0_REG, rnd_seed & 0xff);
   trx_reg_write(CSMA_SEED_1_REG, trx_reg_read(CSMA_SEED_1_REG) | ((rnd_seed >> 8) & 0x07));
 
-  /* Notify user */
+  /* Start a process for handling incoming RF packets */
+  process_start(&samr21_rf_process, NULL);
+
+  /* Log */
   INFO("at86rf233 initialized");
 
   return 0;
+}
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(samr21_rf_process, ev, data)
+{
+  PROCESS_BEGIN();
+
+  TRACE("samr21_rf_process started");
+
+  while(1) {
+    /* Block until process is polled from the interrupt handler */
+    PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
+
+    /* Clear global packet buffer */
+    packetbuf_clear();
+
+    /* Fill packet buffer with received data and its attributes */
+    /* Be sure a packet has been received by checking the return value */
+    if (read(packetbuf_dataptr(), PACKETBUF_SIZE) > 0) {
+      /* Let the network stack process the packet */
+      NETSTACK_RDC.input();
+    }
+  }
+
+  PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
 const struct radio_driver samr21_rf_driver =

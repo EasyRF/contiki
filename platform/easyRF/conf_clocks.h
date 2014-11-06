@@ -94,8 +94,8 @@
 #  define CONF_CLOCK_DFLL_FINE_VALUE              (0xff / 4)
 
 /* DFLL closed loop mode configuration */
-#  define CONF_CLOCK_DFLL_SOURCE_GCLK_GENERATOR   GCLK_GENERATOR_1
-#  define CONF_CLOCK_DFLL_MULTIPLY_FACTOR         6
+#  define CONF_CLOCK_DFLL_SOURCE_GCLK_GENERATOR   GCLK_GENERATOR_1 /* 4 MHz */
+#  define CONF_CLOCK_DFLL_MULTIPLY_FACTOR         12 /* 12 x 4 MHz = 48 MHz */
 #  define CONF_CLOCK_DFLL_QUICK_LOCK              true
 #  define CONF_CLOCK_DFLL_TRACK_AFTER_FINE_LOCK   true
 #  define CONF_CLOCK_DFLL_KEEP_LOCK_ON_WAKEUP     true
