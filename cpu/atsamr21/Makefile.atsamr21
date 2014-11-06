@@ -29,7 +29,7 @@ CFLAGS += -mthumb -mcpu=cortex-m0plus -mlong-calls -fno-builtin -Wall -std=gnu99
 # CPU specific definitions
 CFLAGS += -D__SAMR21G18A__
 CFLAGS += -DARM_MATH_CM0=true
-CFLAGS += -DUSART_CALLBACK_MODE=false
+CFLAGS += -DUSART_CALLBACK_MODE=true
 CFLAGS += -DSPI_CALLBACK_MODE=false
 CFLAGS += -DRTC_COUNT_ASYNC=true
 CFLAGS += -DCYCLE_MODE
@@ -88,7 +88,7 @@ CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/sercom
 CONTIKI_CPU_SOURCEFILES += sercom.c sercom_interrupt.c
 #### Sercom usart
 CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/sercom/usart
-CONTIKI_CPU_SOURCEFILES += usart.c
+CONTIKI_CPU_SOURCEFILES += usart.c usart_interrupt.c
 #### Sercom SPI
 CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/sercom/spi
 CONTIKI_CPU_SOURCEFILES += spi.c

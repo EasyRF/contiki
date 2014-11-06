@@ -2,12 +2,6 @@
 #include "leds-arch.h"
 
 
-#define LED_RED_PIN     PIN_PA15
-#define LED_GREEN_PIN   PIN_PA16
-#define LED_BLUE_PIN    PIN_PA17
-#define LED_WHITE_PIN   PIN_PA27
-
-
 static unsigned char led_status;
 
 /*---------------------------------------------------------------------------*/

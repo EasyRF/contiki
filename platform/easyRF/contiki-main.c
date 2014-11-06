@@ -11,6 +11,7 @@
 #include "dev/sensor_bmp180.h"
 #include "dev/sensor_si7020.h"
 #include "dev/sensor_joystick.h"
+#include "dev/lcd_34fpc.h"
 #include "ip64.h"
 #include "lib/random.h"
 #include "net/netstack.h"
@@ -95,11 +96,11 @@ main(void)
 
   clock_init();
 
-  lcd_init();
-
   leds_init();
   leds_off(LEDS_WHITE);
   leds_on(LEDS_GREEN);
+
+  lcd_init();
 
   dbg_init();
 

@@ -2,6 +2,11 @@
 #include "flash.h"
 #include "log.h"
 
+
+//#define FLASH_DRIVER  INTERNAL_FLASH
+#define FLASH_DRIVER  EXTERNAL_FLASH
+
+
 /*---------------------------------------------------------------------------*/
 PROCESS(flash_test_process, "Flash-test process");
 AUTOSTART_PROCESSES(&flash_test_process);
@@ -18,7 +23,7 @@ PROCESS_THREAD(flash_test_process, ev, data)
   INFO("Flash test");
 
   /* Open the flash */
-  INTERNAL_FLASH.open();
+  FLASH_DRIVER.open();
 
   {
     unsigned long addr = 64 * (4096 - 1);
@@ -27,8 +32,8 @@ PROCESS_THREAD(flash_test_process, ev, data)
 
     INFO("Test1: write 2 bytes at the start of the last page");
 
-    INTERNAL_FLASH.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
-    INTERNAL_FLASH.read(addr, (unsigned char *)&data_out, sizeof(data_out));
+    FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
+    FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
     if (data_in == data_out) {
       INFO("OK");
@@ -52,8 +57,8 @@ PROCESS_THREAD(flash_test_process, ev, data)
 
     memset(data_out, 0, sizeof(data_out));
 
-    INTERNAL_FLASH.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
-    INTERNAL_FLASH.read(addr, (unsigned char *)&data_out, sizeof(data_out));
+    FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
+    FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
     for (i = 0; i < sizeof(data_in); i++) {
       if (data_in[i] != data_out[i]) {
@@ -76,8 +81,8 @@ PROCESS_THREAD(flash_test_process, ev, data)
 
     INFO("Test3: write 2 bytes in the middle of the second last page");
 
-    INTERNAL_FLASH.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
-    INTERNAL_FLASH.read(addr, (unsigned char *)&data_out, sizeof(data_out));
+    FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
+    FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
     if (data_in == data_out) {
       INFO("OK");
@@ -101,8 +106,8 @@ PROCESS_THREAD(flash_test_process, ev, data)
 
     memset(data_out, 0, sizeof(data_out));
 
-    INTERNAL_FLASH.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
-    INTERNAL_FLASH.read(addr, (unsigned char *)&data_out, sizeof(data_out));
+    FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
+    FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
     for (i = 0; i < sizeof(data_in); i++) {
       if (data_in[i] != data_out[i]) {
@@ -132,8 +137,8 @@ PROCESS_THREAD(flash_test_process, ev, data)
 
     memset(data_out, 0, sizeof(data_out));
 
-    INTERNAL_FLASH.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
-    INTERNAL_FLASH.read(addr, (unsigned char *)&data_out, sizeof(data_out));
+    FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
+    FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
     for (i = 0; i < sizeof(data_in); i++) {
       if (data_in[i] != data_out[i]) {
@@ -163,8 +168,8 @@ PROCESS_THREAD(flash_test_process, ev, data)
 
     memset(data_out, 0, sizeof(data_out));
 
-    INTERNAL_FLASH.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
-    INTERNAL_FLASH.read(addr, (unsigned char *)&data_out, sizeof(data_out));
+    FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
+    FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
     for (i = 0; i < sizeof(data_in); i++) {
       if (data_in[i] != data_out[i]) {

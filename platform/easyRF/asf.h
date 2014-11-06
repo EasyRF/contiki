@@ -66,6 +66,7 @@
 
 // From module: SERCOM USART - Serial Communications (Callback APIs)
 #include <usart.h>
+#include <usart_interrupt.h>
 
 // From module: SYSTEM - Clock Management for SAMR21
 #include <clock.h>
@@ -116,9 +117,6 @@
 // From module: USB Device Stack Core (Common API)
 #include <udc.h>
 #include <udd.h>
-
-// From module: Common files for AT25DFx SerialFlash drivers
-#include <at25dfx.h>
 
 // From module: SERCOM I2C - Master Mode I2C (Polled APIs)
 #include <i2c_common.h>

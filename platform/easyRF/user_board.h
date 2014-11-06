@@ -38,6 +38,17 @@ void system_board_init(void);
 /** @} */
 
 
+/** \name LEDS Pin definitions
+ * @{
+ */
+
+#define LED_RED_PIN     PIN_PA15
+#define LED_GREEN_PIN   PIN_PA16
+#define LED_BLUE_PIN    PIN_PA17
+#define LED_WHITE_PIN   PIN_PA27
+
+/** @} */
+
 /** \name Ethernet/SerialFlash/Display SPI Interface definitions
  * @{
  */
@@ -56,6 +67,8 @@ void system_board_init(void);
 
 #define SERIAL_FLASH_CS               PIN_PA27
 #define DISPLAY_CS                    PIN_PA28
+#define DISPLAY_CMD_DATA_PIN          PIN_PA22
+#define DISPLAY_BACKLIGHT_PIN         PIN_PA14
 
 #define ESD_SPI_BAUDRATE              1000000
 
