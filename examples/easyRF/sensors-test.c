@@ -59,7 +59,6 @@ PROCESS_THREAD(sensors_test_process, ev, data)
     }
 
     displ_drv_st7565s.set_px(cnt % 128, cnt / 128, 1);
-    displ_drv_st7565s.force_update();
     cnt++;
   }
 

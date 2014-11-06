@@ -2,6 +2,10 @@
 #include "display_st7565s.h"
 
 
+/* Update interval */
+#define ST7565S_UPDATE_INTERVAL           (CLOCK_SECOND / 10)
+
+
 #define DISPLAY_CMD   false
 #define DISPLAY_DATA  true
 
@@ -32,13 +36,16 @@ static bool                  needs_update;                           /* Somethin
 static unsigned char         data[DISPL_LAYER_CNT][DISPL_DATA_SIZE]; /* contains the pixel data. The data is inside the driver struct so the BMP, FONT drivers can rapidly edit the data this way  */
 static short                 selected_layer;                         /* current activated layer */
 static short                 active_layer;                           /* current displayed layer */
-static short contrast;
-static bool backlight_on;
+static short                 contrast;
+static bool                  backlight_on;
+
 static unsigned char * pdata_start=0;
 static unsigned char * pdata_end=0;
 static unsigned char * pdata_active_start=0;
 static unsigned char * pdata_active_end=0;
 
+/*---------------------------------------------------------------------------*/
+PROCESS(st7565s_process, "ST7565s display process");
 /*---------------------------------------------------------------------------*/
 static void
 write_command(uint8_t cmd)
@@ -74,12 +81,17 @@ on(void)
 {
   write_command(DISPL_CMD_POWER|7); /* Power control */
   write_command(DISPL_CMD_ONOFF|1); /* Enable display */
+
+  process_start(&st7565s_process, 0);
+
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 static int
 off(void)
 {
+  process_exit(&st7565s_process);
+
   write_command(DISPL_CMD_POWER|0); /* Power control */
   write_command(DISPL_CMD_ONOFF|0); /* Enable display */
   return 0;
@@ -166,9 +178,9 @@ set_px(int x, int y, COLOR_t color)
 }
 /*---------------------------------------------------------------------------*/
 static int
-set_contrast(short contrast)
+set_contrast(short c)
 {
-  contrast=contrast;
+  contrast = c;
   write_command(0x81);
   write_command(contrast);          // Contrast
   return 0;
@@ -211,6 +223,25 @@ init(void)
   pdata_active_end      = pdata_start + DISPL_DATA_SIZE;
   force_update();
   return 0;
+}
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(st7565s_process, ev, data)
+{
+  static struct etimer et;
+
+  PROCESS_BEGIN();
+
+  etimer_set(&et, ST7565S_UPDATE_INTERVAL);
+
+  while(1) {
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+
+    force_update();
+
+    etimer_restart(&et);
+  }
+
+  PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
 const struct display_driver displ_drv_st7565s =
