@@ -28,23 +28,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/**
- * \addtogroup cc2538-examples
- * @{
- *
- * \defgroup cc2538-timers cc2538dk Timer Test Project
- *
- *    This example tests the correct functionality of clocks and timers.
- *
- *    More specifically, it tests clock_seconds, rtimers, etimers and
- *    clock_delay_usec.
- *
- *    This is largely-based on the same example of the cc2530 port.
- * @{
- *
- * \file
- *         Tests related to clocks and timers
- */
 #include "contiki.h"
 #include "sys/clock.h"
 #include "sys/rtimer.h"
