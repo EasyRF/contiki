@@ -61,10 +61,10 @@ PROCESS_THREAD(sensors_test_process, ev, data)
            pressure_sensor.value(BMP180_TEMPERATURE));
     } else if (sensor == &rgbc_sensor) {
       INFO("red: %d, green: %d, blue: %d, clear: %d",
-           rgbc_sensor.value(RGBC_RED),
-           rgbc_sensor.value(RGBC_GREEN),
-           rgbc_sensor.value(RGBC_BLUE),
-           rgbc_sensor.value(RGBC_CLEAR));
+           rgbc_sensor.value(TCS3772_RED),
+           rgbc_sensor.value(TCS3772_GREEN),
+           rgbc_sensor.value(TCS3772_BLUE),
+           rgbc_sensor.value(TCS3772_CLEAR));
     } else if (sensor == &rh_sensor) {
       INFO("humidity: %d, temperature: %d",
            rh_sensor.value(SI7020_HUMIDITY),
@@ -127,9 +127,9 @@ PROCESS_THREAD(http_post_process, ev, data)
                "\"joystick\":\"%s\","
                "\"wheel\":%d"
              "}",
-             rgbc_sensor.value(RGBC_RED_BYTE),
-             rgbc_sensor.value(RGBC_GREEN_BYTE),
-             rgbc_sensor.value(RGBC_BLUE_BYTE),
+             rgbc_sensor.value(TCS3772_RED_BYTE),
+             rgbc_sensor.value(TCS3772_GREEN_BYTE),
+             rgbc_sensor.value(TCS3772_BLUE_BYTE),
              pressure_sensor.value(BMP180_PRESSURE),
              pressure_sensor.value(BMP180_TEMPERATURE),
              rh_sensor.value(SI7020_HUMIDITY),
