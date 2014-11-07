@@ -1,10 +1,4 @@
-/**
- * \addtogroup EasyRF
- * @{
- *
- * \file
- *  Configuration for the EasyRF platform
- */
+/* Configuration for the EasyRF platform */
 #ifndef CONTIKI_CONF_H_
 #define CONTIKI_CONF_H_
 
@@ -22,6 +16,8 @@
  * Those values are not meant to be modified by the user
  * @{
  */
+
+/* Specifies the system tick interval */
 #define CLOCK_CONF_SECOND   1000
 
 /* Compiler configurations */
@@ -42,7 +38,7 @@ typedef uint32_t rtimer_clock_t;
 /** @} */
 /*---------------------------------------------------------------------------*/
 /**
- * \name Serial Boot Loader Backdoor configuration
+ * \name LED configuration
  *
  * Define white LED
  * The RED, GREEN and BLUE led are already defined in /dev/leds.h
@@ -51,45 +47,6 @@ typedef uint32_t rtimer_clock_t;
  */
 
 #define LEDS_WHITE    8
-
-
-/** @} */
-/*---------------------------------------------------------------------------*/
-/**
- * \name Serial Boot Loader Backdoor configuration
- *
- * @{
- */
-
-/*---------------------------------------------------------------------------*/
-/**
- * \name Flash Memory configuration
- *
- * @{
- */
-
-
-
-/** @} */
-/*---------------------------------------------------------------------------*/
-/**
- * \name Watchdog Timer configuration
- *
- * @{
- */
-#ifndef WATCHDOG_CONF_ENABLE
-#define WATCHDOG_CONF_ENABLE	      1 /**< Enable the watchdog timer */
-#endif
-/** @} */
-/*---------------------------------------------------------------------------*/
-/**
- * \name USB 'core' configuration
- *
- * Those values are not meant to be modified by the user, except where stated
- * otherwise
- * @{
- */
-
 
 /** @} */
 /*---------------------------------------------------------------------------*/
@@ -108,66 +65,19 @@ typedef uint32_t rtimer_clock_t;
 /** @} */
 /*---------------------------------------------------------------------------*/
 /**
- * \name uDMA Configuration and channel allocations
- *
- * @{
- */
-
-/** @} */
-/*---------------------------------------------------------------------------*/
-/**
  * \name Character I/O Configuration
  *
  * @{
  */
-#ifndef UART_CONF_ENABLE
-#define UART_CONF_ENABLE            1 /**< Enable/Disable UART I/O */
-#endif
-
-#ifndef UART0_CONF_BAUD_RATE
-#define UART0_CONF_BAUD_RATE   115200 /**< Default UART0 baud rate */
-#endif
 
 #ifndef DBG_CONF_USB
 #define DBG_CONF_USB                1 /**< All debugging over UART by default */
 #endif
 
-#ifndef SERIAL_LINE_CONF_UART
-#define SERIAL_LINE_CONF_UART       0 /**< UART to use with serial line */
-#endif
-
-#if !DBG_CONF_USB
-#ifndef DBG_CONF_UART
-#define DBG_CONF_UART               0 /**< UART to use for debugging */
-#endif
-#endif
-
-
 #define LOG_FORMATTED_CONF_ENABLED  1
 #define LOG_LEVEL                   LOG_LEVEL_TRACE
 
-/**
- * \brief Define this as 1 to build a headless node.
- *
- * The UART will not be initialised its clock will be gated, offering some
- * energy savings. The USB will not be initialised either
- */
-#ifndef SAMR21_CONF_QUIET
-#define SAMR21_CONF_QUIET           0
-#endif
-
-/* SAMR21_CONF_QUIET is hard and overrides all other related defines */
-#if SAMR21_CONF_QUIET
-#undef USB_SERIAL_CONF_ENABLE
-#define USB_SERIAL_CONF_ENABLE      0
-
-#undef UART_CONF_ENABLE
-#define UART_CONF_ENABLE            0
-
-#undef STARTUP_CONF_VERBOSE
-#define STARTUP_CONF_VERBOSE        0
-
-#endif /* SAMR21_CONF_QUIET */
+//#define UIP_CONF_LOGGING          1
 
 /** @} */
 /**
@@ -221,45 +131,10 @@ typedef uint32_t rtimer_clock_t;
 /** @} */
 /*---------------------------------------------------------------------------*/
 /**
- * \name IEEE address configuration
- *
- * Used to generate our RIME & IPv6 address
- * @{
- */
-/**
- * \brief Location of the IEEE address
- * 0 => Read from InfoPage,
- * 1 => Use a hardcoded address, configured by IEEE_ADDR_CONF_ADDRESS
- */
-#ifndef IEEE_ADDR_CONF_HARDCODED
-#define IEEE_ADDR_CONF_HARDCODED             0
-#endif
-
-/**
- * \brief The hardcoded IEEE address to be used when IEEE_ADDR_CONF_HARDCODED
- * is defined as 1
- */
-#ifndef IEEE_ADDR_CONF_ADDRESS
-#define IEEE_ADDR_CONF_ADDRESS { 0x00, 0x12, 0x4B, 0x00, 0x89, 0xAB, 0xCD, 0xEF }
-#endif
-
-/**
- * \brief Location of the IEEE address in the InfoPage when
- * IEEE_ADDR_CONF_HARDCODED is defined as 0
- * 0 => Use the primary address location
- * 1 => Use the secondary address location
- */
-#ifndef IEEE_ADDR_CONF_USE_SECONDARY_LOCATION
-#define IEEE_ADDR_CONF_USE_SECONDARY_LOCATION 0
-#endif
-/** @} */
-/*---------------------------------------------------------------------------*/
-/**
  * \name RF configuration
  *
  * @{
  */
-/* RF Config */
 #ifndef IEEE802154_CONF_PANID
 #define IEEE802154_CONF_PANID               0xABCD /**< ??? */
 #endif
@@ -272,13 +147,6 @@ typedef uint32_t rtimer_clock_t;
 #define SAMR21_RF_CONF_AUTOACK               1 /**< RF H/W generates ACKs */
 #endif /* SAMR21_RF_CONF_AUTOACK */
 
-#ifndef SAMR21_RF_CONF_TX_USE_DMA
-#define SAMR21_RF_CONF_TX_USE_DMA            0 /**< RF TX over DMA */
-#endif
-
-#ifndef SAMR21_RF_CONF_RX_USE_DMA
-#define SAMR21_RF_CONF_RX_USE_DMA            0 /**< RF RX over DMA */
-#endif
 /** @} */
 /*---------------------------------------------------------------------------*/
 /**
@@ -342,7 +210,7 @@ typedef uint32_t rtimer_clock_t;
 #define UIP_CONF_ND6_RETRANS_TIMER       10000
 
 #ifndef NBR_TABLE_CONF_MAX_NEIGHBORS
-#define NBR_TABLE_CONF_MAX_NEIGHBORS                20
+#define NBR_TABLE_CONF_MAX_NEIGHBORS        20
 #endif
 #ifndef UIP_CONF_MAX_ROUTES
 #define UIP_CONF_MAX_ROUTES                 20
@@ -390,8 +258,6 @@ typedef uint32_t rtimer_clock_t;
 #endif /* UIP_CONF_IPV6 */
 /** @} */
 /*---------------------------------------------------------------------------*/
-
-//#define UIP_CONF_LOGGING          1
 
 #undef UIP_FALLBACK_INTERFACE
 #define UIP_FALLBACK_INTERFACE    ip64_uip_fallback_interface
