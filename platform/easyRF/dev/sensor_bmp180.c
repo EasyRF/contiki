@@ -65,13 +65,14 @@ struct calibration_regs {
 #define SLAVE_ADDRESS           0x77
 
 /* Update interval */
-#define BMP180_READ_INTERVAL    (CLOCK_SECOND * 2)
+#define BMP180_DEFAULT_READ_INTERVAL    (CLOCK_SECOND * 2)
 
 
 static bool sensor_active;
 static struct calibration_regs calibration_values;
 static int32_t temperature;
 static int32_t pressure;
+static struct etimer read_timer;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(bmp180_process, "BMP180 Process");
@@ -289,6 +290,7 @@ configure(int type, int value)
   switch(type) {
   case SENSORS_HW_INIT:
     bmp180_init();
+    etimer_set(&read_timer, BMP180_DEFAULT_READ_INTERVAL);
     return 1;
   case SENSORS_ACTIVE:
     if(value) {
@@ -299,24 +301,23 @@ configure(int type, int value)
       sensor_active = false;
     }
     return 1;
+  case BMP180_READ_INTERVAL:
+    etimer_set(&read_timer, value);
+    return 1;
   }
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(bmp180_process, ev, data)
 {
-  static struct etimer et;
-
   PROCESS_BEGIN();
 
-  etimer_set(&et, BMP180_READ_INTERVAL);
-
   while(1) {
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+    etimer_restart(&read_timer);
+
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&read_timer));
 
     update_values();
-
-    etimer_restart(&et);
   }
 
   PROCESS_END();

@@ -31,12 +31,18 @@
 #define ADC_TO_MV(x)          ((uint32_t)x * ADC_REF_VOLTAGE / ADC_MAX_VALUE)
 
 /* Update interval */
-#define JOYSTICK_READ_INTERVAL    (CLOCK_SECOND / 100)
+#define JOYSTICK_DEFAULT_READ_INTERVAL    (CLOCK_SECOND / 100)
 
 
 static struct adc_module adc_instance;
 static uint8_t joystick_state;
 static bool sensor_active;
+static struct etimer read_timer;
+
+const char * joystick_state_strings[] = {
+  "Idle","Up","Right","Down","Left","Button"
+};
+
 /*---------------------------------------------------------------------------*/
 PROCESS(joystick_process, "Joystick Process");
 /*---------------------------------------------------------------------------*/
@@ -101,10 +107,13 @@ configure_adc(void)
 static int
 value(int type)
 {
-  (void)type;
-
-  /* Returns last known state */
-  return joystick_state;
+  switch (type) {
+  case JOYSTICK_STATE:
+    return joystick_state;
+  default:
+    WARN("Unknown value type");
+    return -1;
+  }
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -124,6 +133,7 @@ configure(int type, int value)
   switch(type) {
   case SENSORS_HW_INIT:
     configure_adc();
+    etimer_set(&read_timer, JOYSTICK_DEFAULT_READ_INTERVAL);
     return 1;
   case SENSORS_ACTIVE:
     if (value) {
@@ -136,24 +146,23 @@ configure(int type, int value)
       sensor_active = 0;
     }
     return 1;
+  case JOYSTICK_READ_INTERVAL:
+    etimer_set(&read_timer, value);
+    return 1;
   }
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(joystick_process, ev, data)
 {
-  static struct etimer et;
-
   PROCESS_BEGIN();
 
-  etimer_set(&et, JOYSTICK_READ_INTERVAL);
-
   while(1) {
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+    etimer_restart(&read_timer);
+
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&read_timer));
 
     update();
-
-    etimer_restart(&et);
   }
 
   PROCESS_END();

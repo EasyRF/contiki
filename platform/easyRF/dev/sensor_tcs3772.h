@@ -3,11 +3,14 @@
 
 #include "lib/sensors.h"
 
-#define RGBC_RED     0
-#define RGBC_GREEN   1
-#define RGBC_BLUE    2
-#define RGBC_CLEAR   3
+/* Configure */
+#define TCS3772_READ_INTERVAL 1
 
+/* Value */
+#define RGBC_RED          0
+#define RGBC_GREEN        1
+#define RGBC_BLUE         2
+#define RGBC_CLEAR        3
 #define RGBC_RED_BYTE     4
 #define RGBC_GREEN_BYTE   5
 #define RGBC_BLUE_BYTE    6
