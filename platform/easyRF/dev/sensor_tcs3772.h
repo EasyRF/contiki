@@ -7,14 +7,14 @@
 #define TCS3772_READ_INTERVAL 1
 
 /* Value */
-#define RGBC_RED          0
-#define RGBC_GREEN        1
-#define RGBC_BLUE         2
-#define RGBC_CLEAR        3
-#define RGBC_RED_BYTE     4
-#define RGBC_GREEN_BYTE   5
-#define RGBC_BLUE_BYTE    6
-#define RGBC_CLEAR_BYTE   7
+#define TCS3772_RED          0
+#define TCS3772_GREEN        1
+#define TCS3772_BLUE         2
+#define TCS3772_CLEAR        3
+#define TCS3772_RED_BYTE     4
+#define TCS3772_GREEN_BYTE   5
+#define TCS3772_BLUE_BYTE    6
+#define TCS3772_CLEAR_BYTE   7
 
 
 extern const struct sensors_sensor rgbc_sensor;

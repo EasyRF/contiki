@@ -166,13 +166,13 @@ value(int type)
   uint16_t rgb_max = max(sensor_data.rdata, max(sensor_data.gdata, sensor_data.bdata));
 
   switch(type) {
-  case RGBC_RED: return sensor_data.rdata;
-  case RGBC_GREEN: return sensor_data.gdata;
-  case RGBC_BLUE: return sensor_data.bdata;
-  case RGBC_CLEAR: return sensor_data.cdata;
-  case RGBC_RED_BYTE: return ((uint32_t)sensor_data.rdata * 255 / rgb_max);
-  case RGBC_GREEN_BYTE: return ((uint32_t)sensor_data.gdata * 255 / rgb_max);
-  case RGBC_BLUE_BYTE: return ((uint32_t)sensor_data.bdata * 255 / rgb_max);
+  case TCS3772_RED: return sensor_data.rdata;
+  case TCS3772_GREEN: return sensor_data.gdata;
+  case TCS3772_BLUE: return sensor_data.bdata;
+  case TCS3772_CLEAR: return sensor_data.cdata;
+  case TCS3772_RED_BYTE: return ((uint32_t)sensor_data.rdata * 255 / rgb_max);
+  case TCS3772_GREEN_BYTE: return ((uint32_t)sensor_data.gdata * 255 / rgb_max);
+  case TCS3772_BLUE_BYTE: return ((uint32_t)sensor_data.bdata * 255 / rgb_max);
   default:
     WARN("Invalid property");
     return 0;

@@ -1,3 +1,26 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2014 EasyRF
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 #include <asf.h>
 
 /* at86rf233 includes */
@@ -165,6 +188,10 @@ transmit(unsigned short transmit_len)
   TRX_TRIG_DELAY();
   TRX_SLP_TR_LOW();
 
+  /* Update counters */
+  ENERGEST_OFF(ENERGEST_TYPE_LISTEN);
+  ENERGEST_ON(ENERGEST_TYPE_TRANSMIT);
+
   /* Wait for tx result */
   RTIMER_BUSYWAIT_UNTIL((phyState != PHY_STATE_TX_WAIT_END), RTIMER_SECOND);
 
@@ -249,8 +276,13 @@ on(void)
   /* Update rx flag */
   phyRxState = true;
 
+  /* Update counters */
+  ENERGEST_ON(ENERGEST_TYPE_LISTEN);
+
+  /* Log */
   TRACE("on");
 
+  /* Ok */
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -263,8 +295,13 @@ off(void)
   /* Update rx flag */
   phyRxState = false;
 
+  /* Update counters */
+  ENERGEST_OFF(ENERGEST_TYPE_LISTEN);
+
+  /* Log */
   TRACE("off");
 
+  /* Ok */
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -407,6 +444,9 @@ get_energy_level(void)
   /* Turn on radio when necessary */
   if (!phyRxState) {
     phyTrxSetState(TRX_CMD_RX_ON);
+
+    /* Update counters */
+    ENERGEST_ON(ENERGEST_TYPE_LISTEN);
   }
 
   /* Write some value to ED register to start energy detection */
@@ -421,6 +461,9 @@ get_energy_level(void)
   /* Turn off radio when it was off */
   if (!phyRxState) {
     phyTrxSetState(TRX_CMD_TRX_OFF);
+
+    /* Update counters */
+    ENERGEST_OFF(ENERGEST_TYPE_LISTEN);
   }
 
   /* Convert raw value to dBm and return it */
@@ -590,6 +633,9 @@ samr21_interrupt_handler(void)
     return;
   }
 
+  /* Update counters */
+  ENERGEST_ON(ENERGEST_TYPE_IRQ);
+
   /* Only handle TRX_END interrupt */
   if (trx_reg_read(IRQ_STATUS_REG) & (1 << TRX_END)) {
     /* The interrupt is either caused by a TX or RX
@@ -621,12 +667,18 @@ samr21_interrupt_handler(void)
       /* If the radio was on, turn it on again */
       if (phyRxState) {
         phyTrxSetState(TRX_CMD_RX_AACK_ON);
+
+        /* Update counters */
+        ENERGEST_ON(ENERGEST_TYPE_LISTEN);
       }
 
       /* Update state */
       phyState = PHY_STATE_IDLE;
     }
   }
+
+  /* Update counters */
+  ENERGEST_OFF(ENERGEST_TYPE_IRQ);
 }
 /*---------------------------------------------------------------------------*/
 static uint16_t
