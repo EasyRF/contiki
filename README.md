@@ -8,11 +8,11 @@ The module and kit are especially designed with IoT projects in mind.
 
 For more information or to buy a kit or module, see the EasyRF website:
 
-[http://shop.top-electronics.eu/evaluation-kit-for-erf1000-module-p-17199.html]()
+[http://shop.top-electronics.eu/evaluation-kit-for-erf1000-module-p-17199.html](http://shop.top-electronics.eu/evaluation-kit-for-erf1000-module-p-17199.html)
 
 For more information about Contiki, see the Contiki website:
 
-[http://contiki-os.org]()
+[http://contiki-os.org](http://contiki-os.org)
 
 ##Getting started
 
@@ -24,7 +24,7 @@ To get your board up and running as quickly as possible follow the steps below.
 
 You can find the instruction for running the easyRF http demo server here:
 
-[https://github.com/EasyRF/http-server-demo]()
+[https://github.com/EasyRF/http-server-demo](https://github.com/EasyRF/http-server-demo)
 
 ### Install tools
 
@@ -47,7 +47,7 @@ Most developers will already have make installed. But if not you need to install
 
 Install the Command Line Tools you can find them here: 
 
-[https://developer.apple.com/opensource/]() 
+[https://developer.apple.com/opensource/](https://developer.apple.com/opensource/) 
 
 ###### Linux
 
@@ -57,20 +57,20 @@ Install the Command Line Tools you can find them here:
 
 Install the make package from GNUWin32 you can find it here: 
 
-[http://gnuwin32.sourceforge.net/packages/make.htm]()
+[http://gnuwin32.sourceforge.net/packages/make.htm](http://gnuwin32.sourceforge.net/packages/make.htm)
 
 #### 3. Atmel Software Framework (ASF)
 
 The CPU and platform drivers for the ERF1000 module are all written on top of the drivers in ASF. Download the latest version from:
 
-[http://www.atmel.com/tools/AVRSOFTWAREFRAMEWORK.aspx]()
+[http://www.atmel.com/tools/AVRSOFTWAREFRAMEWORK.aspx](http://www.atmel.com/tools/AVRSOFTWAREFRAMEWORK.aspx)
 
 #### 4. OpenOCD (optional)
 
 OpenOCD can be used for pogramming binaries into your target.
 Its open source and available for all major OS'es. As of version 0.8.0 the target at91samr21g18 is supported. The latest source code can be downloaded from:
 
-[http://sourceforge.net/projects/openocd/files/latest/download?source=files]()
+[http://sourceforge.net/projects/openocd/files/latest/download?source=files](http://sourceforge.net/projects/openocd/files/latest/download?source=files)
 
 Build instuctions are included in the download.
 
