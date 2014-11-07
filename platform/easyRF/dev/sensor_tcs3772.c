@@ -70,7 +70,7 @@
 #define TIMEOUT                 10
 
 /* Update interval */
-#define TCS3772_READ_INTERVAL   (CLOCK_SECOND * 2)
+#define TCS3772_DEFAULT_READ_INTERVAL   (CLOCK_SECOND * 2)
 
 
 struct status_regs {
@@ -86,6 +86,7 @@ struct status_regs {
 
 static bool sensor_active;
 static struct status_regs sensor_data;
+static struct etimer read_timer;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(tcs3772_process, "TCS3772 Process");
@@ -195,6 +196,7 @@ configure(int type, int value)
   switch(type) {
   case SENSORS_HW_INIT:
     tcs3772_init();
+    etimer_set(&read_timer, TCS3772_DEFAULT_READ_INTERVAL);
     return 1;
   case SENSORS_ACTIVE:
     if(value) {
@@ -205,24 +207,23 @@ configure(int type, int value)
       process_exit(&tcs3772_process);
     }
     return 1;
+  case TCS3772_READ_INTERVAL:
+    etimer_set(&read_timer, value);
+    return 1;
   }
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(tcs3772_process, ev, data)
 {
-  static struct etimer et;
-
   PROCESS_BEGIN();
 
-  etimer_set(&et, TCS3772_READ_INTERVAL);
-
   while(1) {
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+    etimer_restart(&read_timer);
+
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&read_timer));
 
     update_values();
-
-    etimer_restart(&et);
   }
 
   PROCESS_END();

@@ -30,14 +30,18 @@ PROCESS_THREAD(sensors_test_process, ev, data)
 
   process_start(&sensors_process, NULL);
 
+  rgbc_sensor.configure(TCS3772_READ_INTERVAL, CLOCK_SECOND / 2);
+
   SENSORS_ACTIVATE(touch_wheel_sensor);
   SENSORS_ACTIVATE(joystick_sensor);
   SENSORS_ACTIVATE(pressure_sensor);
   SENSORS_ACTIVATE(rgbc_sensor);
   SENSORS_ACTIVATE(rh_sensor);
 
-  displ_drv_st7565s.on();
-  displ_drv_st7565s.set_backlight(1);
+  pressure_sensor.configure(BMP180_READ_INTERVAL, CLOCK_SECOND / 2);
+
+//  displ_drv_st7565s.on();
+//  displ_drv_st7565s.set_backlight(1);
 
   while (1) {
     PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event);
@@ -107,15 +111,31 @@ PROCESS_THREAD(http_post_process, ev, data)
 
   PROCESS_BEGIN();
 
-  etimer_set(&et, CLOCK_SECOND * 2);
+  etimer_set(&et, CLOCK_SECOND * 1);
 
   while (1) {
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
-    snprintf(sensor_data, sizeof(sensor_data), "{\"red\":\"%02X\",\"green\":\"%02X\",\"blue\":\"%02X\"}",
+    snprintf(sensor_data, sizeof(sensor_data),
+             "{"
+               "\"red\":\"%02X\","
+               "\"green\":\"%02X\","
+               "\"blue\":\"%02X\","
+               "\"pressure\":%d,"
+               "\"temperature\":%d,"
+               "\"humidity\":%d,"
+               "\"joystick\":\"%s\","
+               "\"wheel\":%d"
+             "}",
              rgbc_sensor.value(RGBC_RED_BYTE),
              rgbc_sensor.value(RGBC_GREEN_BYTE),
-             rgbc_sensor.value(RGBC_BLUE_BYTE));
+             rgbc_sensor.value(RGBC_BLUE_BYTE),
+             pressure_sensor.value(BMP180_PRESSURE),
+             pressure_sensor.value(BMP180_TEMPERATURE),
+             rh_sensor.value(SI7020_HUMIDITY),
+             JOYSTICK_STATE_TO_STRING(joystick_sensor.value(JOYSTICK_STATE)),
+             touch_wheel_sensor.value(TOUCH_WHEEL_POSITION)
+    );
 
     http_socket_post(&hs, "http://192.168.2.7:9999/api/devices/1",
                      (const uint8_t *)sensor_data, strlen((const char *)sensor_data),

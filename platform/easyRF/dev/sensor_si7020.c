@@ -37,12 +37,13 @@
 #define SLAVE_ADDRESS             0x40
 
 /* The read interval */
-#define SI7020_READ_INTERVAL      (CLOCK_SECOND * 2)
+#define SI7020_DEFAULT_READ_INTERVAL  (CLOCK_SECOND * 2)
 
 
 static bool sensor_active;
 static int relative_humidity;
 static int temperature;
+static struct etimer read_timer;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(si7020_process, "Si7020 Process");
@@ -165,9 +166,9 @@ configure(int type, int value)
 {
   switch(type) {
   case SENSORS_HW_INIT:
-    if (si7020_init()) {
-      return 1;
-    }
+    si7020_init();
+    etimer_set(&read_timer, SI7020_DEFAULT_READ_INTERVAL);
+    return 1;
   case SENSORS_ACTIVE:
     if(value) {
       process_start(&si7020_process, 0);
@@ -177,24 +178,23 @@ configure(int type, int value)
       sensor_active = false;
     }
     return 1;
+  case SI7020_READ_INTERVAL:
+    etimer_set(&read_timer, value);
+    return 1;
   }
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(si7020_process, ev, data)
 {
-  static struct etimer et;
-
   PROCESS_BEGIN();
 
-  etimer_set(&et, SI7020_READ_INTERVAL);
-
   while(1) {
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+    etimer_restart(&read_timer);
+
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&read_timer));
 
     update_values();
-
-    etimer_restart(&et);
   }
 
   PROCESS_END();

@@ -3,6 +3,7 @@
 
 #include "lib/sensors.h"
 
+/* Value */
 #define TOUCH_WHEEL_STATE     0
 #define TOUCH_WHEEL_POSITION  1
 
