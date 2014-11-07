@@ -32,11 +32,17 @@
 #ifndef ENC28J60_H
 #define ENC28J60_H
 
+typedef void (* enc28j60_interrupt_handler)(void);
+
 void enc28j60_init(uint8_t *mac_addr);
 
 int enc28j60_send(uint8_t *data, uint16_t datalen);
 
 int enc28j60_read(uint8_t *buffer, uint16_t bufsize);
+
+void enc28j60_install_interrupt_handler(enc28j60_interrupt_handler handler);
+
+void enc28j60_interrupt(void);
 
 /* ENC28J60 architecture-specific SPI functions that are called by the
    enc28j60 driver and must be implemented by the platform code */

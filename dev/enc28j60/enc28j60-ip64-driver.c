@@ -45,6 +45,12 @@ PROCESS(enc28j60_ip64_driver_process, "ENC28J60 IP64 driver");
 
 /*---------------------------------------------------------------------------*/
 static void
+enc28j60_poll_process(void)
+{
+  process_poll(&enc28j60_ip64_driver_process);
+}
+/*---------------------------------------------------------------------------*/
+static void
 init(void)
 {
   uint8_t eui64[8];
@@ -70,6 +76,9 @@ init(void)
          macaddr[0], macaddr[1], macaddr[2],
          macaddr[3], macaddr[4], macaddr[5]);
   enc28j60_init(macaddr);
+
+  enc28j60_install_interrupt_handler(enc28j60_poll_process);
+
   process_start(&enc28j60_ip64_driver_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
@@ -82,12 +91,11 @@ output(uint8_t *packet, uint16_t len)
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(enc28j60_ip64_driver_process, ev, data)
 {
-  static int len;
-  static struct etimer e;
+  int len;
+
   PROCESS_BEGIN();
 
   while(1) {
-    etimer_set(&e, CLOCK_SECOND / 100);
     PROCESS_WAIT_EVENT();
     len = enc28j60_read(ip64_packet_buffer, ip64_packet_buffer_maxlen);
     if(len > 0) {

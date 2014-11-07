@@ -134,6 +134,7 @@ static uint8_t initialized = 0;
 static uint8_t enc_mac_addr[6];
 static int received_packets = 0;
 static int sent_packets = 0;
+static enc28j60_interrupt_handler interrupt_handler;
 
 /*---------------------------------------------------------------------------*/
 static uint8_t
@@ -623,6 +624,26 @@ enc28j60_read(uint8_t *buffer, uint16_t bufsize)
   received_packets++;
   PRINTF("enc28j60: received_packets %d\n", received_packets);
   return len;
+}
+/*---------------------------------------------------------------------------*/
+void
+enc28j60_install_interrupt_handler(enc28j60_interrupt_handler handler)
+{
+  /* Set the handler function */
+  interrupt_handler = handler;
+
+  /* Enable RX interrupt */
+  /* INTIE is the global interrupt enable bit (7) in the EIE register */
+  /* PKTIE is the packet pending interrupt bit (6) in the EIE register */
+  writereg(EIE, 0xC0);
+}
+/*---------------------------------------------------------------------------*/
+void
+enc28j60_interrupt(void)
+{
+  if (interrupt_handler) {
+    interrupt_handler();
+  }
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(enc_watchdog_process, ev, data)
