@@ -11,10 +11,14 @@ uint16_t rx_char;
 static void
 usart_read_callback(const struct usart_module *const usart_module)
 {
+  ENERGEST_ON(ENERGEST_TYPE_IRQ);
+
   if (char_callback) {
     char_callback(rx_char & 0xff);
   }
   usart_read_job(&usart_instance, &rx_char);
+
+  ENERGEST_OFF(ENERGEST_TYPE_IRQ);
 }
 /*---------------------------------------------------------------------------*/
 static int

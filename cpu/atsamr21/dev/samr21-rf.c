@@ -165,6 +165,10 @@ transmit(unsigned short transmit_len)
   TRX_TRIG_DELAY();
   TRX_SLP_TR_LOW();
 
+  /* Update counters */
+  ENERGEST_OFF(ENERGEST_TYPE_LISTEN);
+  ENERGEST_ON(ENERGEST_TYPE_TRANSMIT);
+
   /* Wait for tx result */
   RTIMER_BUSYWAIT_UNTIL((phyState != PHY_STATE_TX_WAIT_END), RTIMER_SECOND);
 
@@ -249,8 +253,13 @@ on(void)
   /* Update rx flag */
   phyRxState = true;
 
+  /* Update counters */
+  ENERGEST_ON(ENERGEST_TYPE_LISTEN);
+
+  /* Log */
   TRACE("on");
 
+  /* Ok */
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -263,8 +272,13 @@ off(void)
   /* Update rx flag */
   phyRxState = false;
 
+  /* Update counters */
+  ENERGEST_OFF(ENERGEST_TYPE_LISTEN);
+
+  /* Log */
   TRACE("off");
 
+  /* Ok */
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -407,6 +421,9 @@ get_energy_level(void)
   /* Turn on radio when necessary */
   if (!phyRxState) {
     phyTrxSetState(TRX_CMD_RX_ON);
+
+    /* Update counters */
+    ENERGEST_ON(ENERGEST_TYPE_LISTEN);
   }
 
   /* Write some value to ED register to start energy detection */
@@ -421,6 +438,9 @@ get_energy_level(void)
   /* Turn off radio when it was off */
   if (!phyRxState) {
     phyTrxSetState(TRX_CMD_TRX_OFF);
+
+    /* Update counters */
+    ENERGEST_OFF(ENERGEST_TYPE_LISTEN);
   }
 
   /* Convert raw value to dBm and return it */
@@ -590,6 +610,9 @@ samr21_interrupt_handler(void)
     return;
   }
 
+  /* Update counters */
+  ENERGEST_ON(ENERGEST_TYPE_IRQ);
+
   /* Only handle TRX_END interrupt */
   if (trx_reg_read(IRQ_STATUS_REG) & (1 << TRX_END)) {
     /* The interrupt is either caused by a TX or RX
@@ -621,12 +644,18 @@ samr21_interrupt_handler(void)
       /* If the radio was on, turn it on again */
       if (phyRxState) {
         phyTrxSetState(TRX_CMD_RX_AACK_ON);
+
+        /* Update counters */
+        ENERGEST_ON(ENERGEST_TYPE_LISTEN);
       }
 
       /* Update state */
       phyState = PHY_STATE_IDLE;
     }
   }
+
+  /* Update counters */
+  ENERGEST_OFF(ENERGEST_TYPE_IRQ);
 }
 /*---------------------------------------------------------------------------*/
 static uint16_t

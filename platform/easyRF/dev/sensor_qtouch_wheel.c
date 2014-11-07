@@ -129,9 +129,13 @@ touch_sensors_config(void)
 static void
 touch_selfcap_measure_complete_callback( void )
 {
+  ENERGEST_ON(ENERGEST_TYPE_IRQ);
+
   if (!(p_selfcap_measure_data->acq_status & TOUCH_BURST_AGAIN)) {
     p_selfcap_measure_data->measurement_done_touch = 1u;
   }
+
+  ENERGEST_OFF(ENERGEST_TYPE_IRQ);
 }
 /*---------------------------------------------------------------------------*/
 static touch_ret_t
@@ -193,10 +197,14 @@ qtouch_wheel_init(void)
 static void
 tc_callback(struct tc_module *const module_inst)
 {
+  ENERGEST_ON(ENERGEST_TYPE_IRQ);
+
   touch_time.time_to_measure_touch = 1;
   touch_time.current_time_ms += touch_time.measurement_period_ms;
 
   touch_sensor_measure();
+
+  ENERGEST_OFF(ENERGEST_TYPE_IRQ);
 }
 /*---------------------------------------------------------------------------*/
 static void
