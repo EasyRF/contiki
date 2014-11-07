@@ -144,8 +144,6 @@ main(void)
   energest_init();
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
-  process_start(&sensors_process, NULL);
-
   autostart_start(autostart_processes);
 
   while(1) {

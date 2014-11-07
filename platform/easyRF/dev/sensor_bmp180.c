@@ -262,8 +262,6 @@ update_values(void)
 static int
 value(int type)
 {
-  update_values();
-
   switch (type) {
   case BMP180_TEMPERATURE: return temperature;
   case BMP180_PRESSURE: return pressure;

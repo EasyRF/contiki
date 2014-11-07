@@ -38,8 +38,8 @@
  */
 
 #include "contiki.h"
-#include "dev/leds.h"
-#include "log.h"
+#include <stdio.h>
+
 /*---------------------------------------------------------------------------*/
 PROCESS(hello_world_process, "Hello world process");
 AUTOSTART_PROCESSES(&hello_world_process);
@@ -48,7 +48,7 @@ PROCESS_THREAD(hello_world_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  INFO("Hello, world\n");
+  printf("Hello, world\n");
 
   PROCESS_END();
 }
