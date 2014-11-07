@@ -1,0 +1,12 @@
+#ifndef CONF_BOARD_H
+#define CONF_BOARD_H
+
+#define CONF_BOARD_USB_VBUS_DETECT
+
+#define CONF_BOARD_AT86RFX
+
+#define AT86RFX_SPI_BAUDRATE		 5000000UL
+
+#define RF_CAP_TRIM 0x00
+
+#endif // CONF_BOARD_H

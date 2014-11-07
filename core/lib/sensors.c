@@ -38,7 +38,7 @@
 
 #include "lib/sensors.h"
 
-const extern struct sensors_sensor *sensors[];
+const extern struct sensors_sensor *contiki_sensors[];
 extern unsigned char sensors_flags[];
 
 #define FLAG_CHANGED    0x80
@@ -55,7 +55,7 @@ get_sensor_index(const struct sensors_sensor *s)
 {
   int i;
   for(i = 0; i < num_sensors; ++i) {
-    if(sensors[i] == s) {
+    if(contiki_sensors[i] == s) {
       return i;
     }
   }
@@ -65,13 +65,13 @@ get_sensor_index(const struct sensors_sensor *s)
 const struct sensors_sensor *
 sensors_first(void)
 {
-  return sensors[0];
+  return contiki_sensors[0];
 }
 /*---------------------------------------------------------------------------*/
 const struct sensors_sensor *
 sensors_next(const struct sensors_sensor *s)
 {
-  return sensors[get_sensor_index(s) + 1];
+  return contiki_sensors[get_sensor_index(s) + 1];
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -92,8 +92,8 @@ sensors_find(const char *prefix)
   len = strlen(prefix);
 
   for(i = 0; i < num_sensors; ++i) {
-    if(strncmp(prefix, sensors[i]->type, len) == 0) {
-      return sensors[i];
+    if(strncmp(prefix, contiki_sensors[i]->type, len) == 0) {
+      return contiki_sensors[i];
     }
   }
   return NULL;
@@ -108,9 +108,9 @@ PROCESS_THREAD(sensors_process, ev, data)
 
   sensors_event = process_alloc_event();
 
-  for(i = 0; sensors[i] != NULL; ++i) {
+  for(i = 0; contiki_sensors[i] != NULL; ++i) {
     sensors_flags[i] = 0;
-    sensors[i]->configure(SENSORS_HW_INIT, 0);
+    contiki_sensors[i]->configure(SENSORS_HW_INIT, 0);
   }
   num_sensors = i;
 
@@ -121,13 +121,13 @@ PROCESS_THREAD(sensors_process, ev, data)
     do {
       events = 0;
       for(i = 0; i < num_sensors; ++i) {
-	if(sensors_flags[i] & FLAG_CHANGED) {
-	  if(process_post(PROCESS_BROADCAST, sensors_event, (void *)sensors[i]) == PROCESS_ERR_OK) {
-	    PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event);
-	  }
-	  sensors_flags[i] &= ~FLAG_CHANGED;
-	  events++;
-	}
+  if(sensors_flags[i] & FLAG_CHANGED) {
+    if(process_post(PROCESS_BROADCAST, sensors_event, (void *)contiki_sensors[i]) == PROCESS_ERR_OK) {
+      PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event);
+    }
+    sensors_flags[i] &= ~FLAG_CHANGED;
+    events++;
+  }
       }
     } while(events);
   }

@@ -30,7 +30,8 @@
 #include "contiki.h"
 #include "contiki-lib.h"
 #include "contiki-net.h"
-
+#include "dev/leds.h"
+#include "log.h"
 #include <string.h>
 
 #define DEBUG DEBUG_PRINT
@@ -48,23 +49,31 @@ AUTOSTART_PROCESSES(&resolv_process,&udp_server_process);
 static void
 tcpip_handler(void)
 {
+  static clock_time_t previous = 0;
   static int seq_id;
   char buf[MAX_PAYLOAD_LEN];
 
   if(uip_newdata()) {
-    ((char *)uip_appdata)[uip_datalen()] = 0;
-    PRINTF("Server received: '%s' from ", (char *)uip_appdata);
-    PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-    PRINTF("\n");
+    clock_time_t now = clock_time();
 
-    uip_ipaddr_copy(&server_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
-    PRINTF("Responding with message: ");
-    sprintf(buf, "Hello from the server! (%d)", ++seq_id);
-    PRINTF("%s\n", buf);
+//    printf("delta: %ld\n", now - previous);
 
-    uip_udp_packet_send(server_conn, buf, strlen(buf));
+    leds_toggle(LEDS_GREEN);
+
+    previous = now;
+//    ((char *)uip_appdata)[uip_datalen()] = 0;
+//    INFO("Server received: '%s' from ", (char *)uip_appdata);
+//    PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
+//    PRINTF("\n");
+
+//    uip_ipaddr_copy(&server_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
+//    PRINTF("Responding with message: ");
+//    sprintf(buf, "Hello from the server! (%d)", ++seq_id);
+//    PRINTF("%s\n", buf);
+
+//    uip_udp_packet_send(server_conn, buf, strlen(buf));
     /* Restore server connection to allow data from any node */
-    memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
+//    memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
   }
 }
 /*---------------------------------------------------------------------------*/

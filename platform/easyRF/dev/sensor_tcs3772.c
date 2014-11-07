@@ -1,0 +1,231 @@
+#include <asf.h>
+#include "contiki.h"
+#include "i2c_master_interface.h"
+#include "sensor_tcs3772.h"
+#include "log.h"
+
+#undef TRACE
+#define TRACE(...)
+
+/* Bitshift helper */
+#define BM(pos)                 ((uint32_t)1 << pos)
+
+/* Command */
+#define COMMAND_BIT             0x80
+#define COMMAND_REPEAT          (0x00 << 5)
+#define COMMAND_AUTO_INC        (0x01 << 5)
+#define COMMAND_SPECIAL         (0x03 << 5)
+
+/* 0x00 Enable register */
+#define REG_ENABLE              0x00
+#define ENABLE_PEN              BM(2) /* Proximity enable */
+#define ENABLE_AEN              BM(1) /* ADC enable */
+#define ENABLE_PON              BM(0) /* Power enable */
+
+/* 0x01 RGBC Time register */
+#define REG_RGBC_TIME           0x01
+#define RGBC_ATIME(ticks)       (256 - (ticks)) /* 2.4ms per tick */
+
+/* 0x02 Proximity time register */
+#define REG_PROXMITY_TIME       0x02
+#define PROXIMITY_TIME(ticks)   (256 - (ticks)) /* 2.4ms per tick */
+
+/* 0x03 Wait time register */
+/* 0x0D Wait time multiply register, multiply by 12 when set */
+#define ENABLE_WLONG            BM(1)
+/* 0x04 - 0x07 Clear interrupt threshold registers */
+/* 0x08 - 0x0B Proximity interrupt threshold registers */
+/* 0x0C - Persistence Filter register */
+/* 0x0E - Proximity Pulse Count register */
+#define REG_PROXIMITY_PULSE_CNT 0x0E
+
+
+/* 0x0F - Control register */
+#define REG_CONTROL             0x0F
+#define PDRIVE(strength)        ((strength) << 6)
+#define AGAIN(gain)             (gain)
+
+/* Read-only register from here */
+
+/* 0x12 - Device ID register */
+#define REG_DEVICE_ID           0x12
+
+/* 0x13 - Status register */
+#define REG_STATUS              0x13
+#define STATUS_PINT             BM(5)
+#define STATUS_AINT             BM(4)
+#define STATUS_PVALID           BM(1)
+#define STATUS_AVALID           BM(0)
+
+/* 0x14 - 0x1B RGBC channel data registers */
+#define REG_RGBC_CDATA          0x14
+
+/* 0x1C - 0x1D Proximity data registers */
+#define REG_PROXIMITY_DATA      0x1C
+
+/* The I2C address of the device */
+#define SLAVE_ADDRESS           0x29
+
+/* Number of times to retry I2C read/writes */
+#define TIMEOUT                 10
+
+/* Update interval */
+#define TCS3772_READ_INTERVAL   (CLOCK_SECOND * 2)
+
+
+struct status_regs {
+  uint8_t   device_id;
+  uint8_t   status;
+  uint16_t  cdata;
+  uint16_t  rdata;
+  uint16_t  gdata;
+  uint16_t  bdata;
+  uint16_t  pdata;
+};
+
+
+static bool sensor_active;
+static struct status_regs sensor_data;
+
+/*---------------------------------------------------------------------------*/
+PROCESS(tcs3772_process, "TCS3772 Process");
+/*---------------------------------------------------------------------------*/
+static bool
+update_values(void)
+{
+  struct status_regs new_sensor_data;
+  uint8_t cmd;
+
+  cmd = REG_DEVICE_ID | COMMAND_AUTO_INC | COMMAND_BIT;
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &cmd, sizeof(cmd), (uint8_t *)&new_sensor_data, sizeof(new_sensor_data))) {
+    return false;
+  }
+
+  TRACE("device id: 0x%02X, status: 0x%02X, cdata: 0x%04X, rdata: 0x%04X, gdata: 0x%04X, bdata: 0x%04X, pdata: 0x%04X\n",
+         new_sensor_data.device_id, new_sensor_data.status, new_sensor_data.cdata, new_sensor_data.rdata, new_sensor_data.gdata, new_sensor_data.bdata, new_sensor_data.pdata);
+
+  if (memcmp(&sensor_data, &new_sensor_data, sizeof(sensor_data)) != 0) {
+    memcpy(&sensor_data, &new_sensor_data, sizeof(sensor_data));
+    sensors_changed(&rgbc_sensor);
+  }
+
+  return true;
+}
+/*---------------------------------------------------------------------------*/
+static void
+tcs3772_init(void)
+{
+  uint8_t cmd, id;
+
+  i2c_master_interface_init();
+
+  cmd = REG_DEVICE_ID | COMMAND_BIT;
+  if (i2c_master_read_reg(SLAVE_ADDRESS, &cmd, sizeof(cmd), &id, sizeof(id))) {
+    TRACE("id: 0x%02X\n", id);
+  }
+
+  INFO("tcs3772 initialized");
+}
+/*---------------------------------------------------------------------------*/
+static int
+activate_sensor(void)
+{
+  uint8_t cmd[2];
+
+  cmd[0] = REG_ENABLE | COMMAND_REPEAT |COMMAND_BIT;
+  cmd[1] = ENABLE_PON | ENABLE_AEN | ENABLE_PEN;
+  if (!i2c_master_write_reg(SLAVE_ADDRESS, cmd, sizeof(cmd))) {
+    return false;
+  }
+
+  sensor_active = true;
+
+  return true;
+}
+/*---------------------------------------------------------------------------*/
+static int
+deactivate_sensor(void)
+{
+  uint8_t cmd[2];
+
+  cmd[0] = REG_ENABLE | COMMAND_REPEAT | COMMAND_BIT;
+  cmd[1] = 0x00;
+  if (!i2c_master_write_reg(SLAVE_ADDRESS, cmd, sizeof(cmd))) {
+    return false;
+  }
+
+  sensor_active = false;
+
+  return 1;
+}
+/*---------------------------------------------------------------------------*/
+static int
+value(int type)
+{
+  uint16_t rgb_max = max(sensor_data.rdata, max(sensor_data.gdata, sensor_data.bdata));
+
+  switch(type) {
+  case RGBC_RED: return sensor_data.rdata;
+  case RGBC_GREEN: return sensor_data.gdata;
+  case RGBC_BLUE: return sensor_data.bdata;
+  case RGBC_CLEAR: return sensor_data.cdata;
+  case RGBC_RED_BYTE: return ((uint32_t)sensor_data.rdata * 255 / rgb_max);
+  case RGBC_GREEN_BYTE: return ((uint32_t)sensor_data.gdata * 255 / rgb_max);
+  case RGBC_BLUE_BYTE: return ((uint32_t)sensor_data.bdata * 255 / rgb_max);
+  default:
+    WARN("Invalid property");
+    return 0;
+  }
+}
+/*---------------------------------------------------------------------------*/
+static int
+status(int type)
+{
+  switch(type) {
+  case SENSORS_ACTIVE:
+  case SENSORS_READY:
+    return sensor_active;
+  }
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+static int
+configure(int type, int value)
+{
+  switch(type) {
+  case SENSORS_HW_INIT:
+    tcs3772_init();
+    return 1;
+  case SENSORS_ACTIVE:
+    if(value) {
+      activate_sensor();
+      process_start(&tcs3772_process, 0);
+    } else {
+      deactivate_sensor();
+      process_exit(&tcs3772_process);
+    }
+    return 1;
+  }
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(tcs3772_process, ev, data)
+{
+  static struct etimer et;
+
+  PROCESS_BEGIN();
+
+  etimer_set(&et, TCS3772_READ_INTERVAL);
+
+  while(1) {
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+
+    update_values();
+
+    etimer_restart(&et);
+  }
+
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/
+SENSORS_SENSOR(rgbc_sensor, "RGBC Sensor", value, configure, status);

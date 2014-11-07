@@ -31,6 +31,7 @@ summary
 *.faillog
 *.orig
 *~
+*.easyRF
 .DS_Store
 obj_*
 symbols.*
@@ -83,6 +84,9 @@ contiki-cc2530dk.lib
 *.d64
 *.d71
 *.d81
+
+# SAMR21 build artifacts
+atsamr21.ld
 
 #regression tests artifacts
 *.testlog

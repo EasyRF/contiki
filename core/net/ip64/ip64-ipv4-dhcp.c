@@ -43,6 +43,17 @@ PROCESS(ip64_ipv4_dhcp_process, "IPv4 DHCP");
 uip_ipaddr_t uip_hostaddr; /* Needed because it is referenced by dhcpc.c */
 
 
+/* TODO: Use cleaner callback mechanism */
+#ifdef IP64_CONF_DHCP_CALLBACK
+#define IP64_DHCP_CALLBACK IP64_CONF_DHCP_CALLBACK
+#else
+#define IP64_DHCP_CALLBACK 0
+#endif /*IP64_CONF_DHCP_CALLBACK */
+
+#if IP64_DHCP_CALLBACK
+void dhcp_callback(uint8_t configured);
+#endif
+
 /*---------------------------------------------------------------------------*/
 void
 ip64_ipv4_dhcp_init(void)
@@ -78,18 +89,25 @@ ip64_dhcpc_configured(const struct ip64_dhcpc_state *s)
 {
   uip_ip6addr_t ip6dnsaddr;
   printf("DHCP Configured with %d.%d.%d.%d\n",
-	 s->ipaddr.u8[0], s->ipaddr.u8[1],
-	 s->ipaddr.u8[2], s->ipaddr.u8[3]);
+   s->ipaddr.u8[0], s->ipaddr.u8[1],
+   s->ipaddr.u8[2], s->ipaddr.u8[3]);
 
   ip64_set_hostaddr((uip_ip4addr_t *)&s->ipaddr);
   ip64_set_netmask((uip_ip4addr_t *)&s->netmask);
   ip64_set_draddr((uip_ip4addr_t *)&s->default_router);
   ip64_addr_4to6((uip_ip4addr_t *)&s->dnsaddr, &ip6dnsaddr);
   //  mdns_conf(&ip6dnsaddr);
+
+#if IP64_DHCP_CALLBACK
+  dhcp_callback(1);
+#endif
 }
 /*---------------------------------------------------------------------------*/
 void
 ip64_dhcpc_unconfigured(const struct ip64_dhcpc_state *s)
 {
+#if IP64_DHCP_CALLBACK
+  dhcp_callback(0);
+#endif
 }
 /*---------------------------------------------------------------------------*/

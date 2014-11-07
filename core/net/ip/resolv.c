@@ -405,7 +405,7 @@ dns_name_isequal(const unsigned char *queryptr, const char *name,
         return 0;
       }
 
-      if(tolower(*name++) != tolower(*queryptr++)) {
+      if(tolower((int)*name++) != tolower((int)*queryptr++)) {
         return 0;
       }
     }
@@ -506,7 +506,9 @@ start_name_collision_check(clock_time_t after)
 static unsigned char *
 mdns_write_announce_records(unsigned char *queryptr, uint8_t *count)
 {
+#if !UIP_CONF_IPV6
   struct dns_answer *ans;
+#endif
 
 #if UIP_CONF_IPV6
   uint8_t i;
@@ -524,7 +526,6 @@ mdns_write_announce_records(unsigned char *queryptr, uint8_t *count)
         *queryptr++ = 0xc0;
         *queryptr++ = sizeof(struct dns_hdr);
       }
-      ans = (struct dns_answer *)queryptr;
 
       *queryptr++ = (uint8_t) ((NATIVE_DNS_TYPE) >> 8);
       *queryptr++ = (uint8_t) ((NATIVE_DNS_TYPE));
@@ -602,8 +603,6 @@ mdns_prep_host_announce_packet(void)
   unsigned char *queryptr;
 
   uint8_t total_answers = 0;
-
-  struct dns_answer *ans;
 
   /* Be aware that, unless `ARCH_DOESNT_NEED_ALIGNED_STRUCTS` is set,
    * writing directly to the uint16_t members of this struct is an error. */

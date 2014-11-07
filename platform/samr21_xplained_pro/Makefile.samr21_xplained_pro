@@ -1,0 +1,36 @@
+# SAMR21 Xplained Pro platform makefile
+
+# Select Contiki netstack modules
+MODULES += core/net core/net/ipv6 core/net/mac core/net/ip \
+           core/net/rpl core/net/rime core/net/mac/contikimac \
+           core/net/llsec
+
+# Add current dir
+CONTIKI_TARGET_DIRS  = . dev
+
+# Add platform specific definition for ASF
+CFLAGS += -DBOARD=SAMR21_XPLAINED_PRO
+
+# ASF directories
+CONTIKI_TARGET_DIRS += $(ASF_ROOT)/common/boards $(ASF_ROOT)/sam0/boards
+
+# Add generic contiki files
+CONTIKI_TARGET_SOURCEFILES += leds.c sensors.c
+
+# Platform specific source files
+CONTIKI_TARGET_SOURCEFILES += contiki-main.c leds-arch.c dbg-arch.c button-sensor.c
+
+# Add platform/target specific files to contiki sourcefiles list
+CONTIKI_SOURCEFILES += $(CONTIKI_TARGET_SOURCEFILES)
+
+# Target clean
+CLEAN += *.samr21_xplained_pro
+
+# Define the CPU directory
+CONTIKI_CPU = $(CONTIKI)/cpu/atsamr21
+
+# Define board file for openocd programming
+OPENOCD_BOARD = board/atmel_samd21_xplained_pro.cfg
+
+# Include the CPU Makefile
+include $(CONTIKI_CPU)/Makefile.atsamr21
