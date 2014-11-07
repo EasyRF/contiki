@@ -1,4 +1,6 @@
 #include "contiki.h"
+#include "contiki-net.h"
+#include "http-socket.h"
 #include "log.h"
 #include "dev/sensor_qtouch_wheel.h"
 #include "dev/sensor_joystick.h"
@@ -8,9 +10,13 @@
 #include "dev/display_st7565s.h"
 
 
+#define APPLICATION_JSON  "application/json"
+
+
 /*---------------------------------------------------------------------------*/
 PROCESS(sensors_test_process, "Sensors-test process");
-AUTOSTART_PROCESSES(&sensors_test_process);
+PROCESS(http_post_process, "HTTP POST Process");
+AUTOSTART_PROCESSES(&sensors_test_process, &http_post_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(sensors_test_process, ev, data)
 {
@@ -20,6 +26,8 @@ PROCESS_THREAD(sensors_test_process, ev, data)
   PROCESS_BEGIN();
 
   INFO("Sensors-test started");
+
+  process_start(&sensors_process, NULL);
 
   SENSORS_ACTIVATE(touch_wheel_sensor);
   SENSORS_ACTIVATE(joystick_sensor);
@@ -58,8 +66,49 @@ PROCESS_THREAD(sensors_test_process, ev, data)
            rh_sensor.value(SI7020_TEMPERATURE));
     }
 
+    /* Draw a pixel on the screen at each sensor change */
     displ_drv_st7565s.set_px(cnt % 128, cnt / 128, 1);
     cnt++;
+  }
+
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/
+void http_socket_callback(struct http_socket *s,
+                          void *ptr,
+                          http_socket_event_t ev,
+                          const uint8_t *data,
+                          uint16_t datalen)
+{
+
+  if (ev == HTTP_SOCKET_DATA) {
+    INFO("%s", data);
+  }
+}
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(http_post_process, ev, data)
+{
+  static struct etimer et;
+  static struct http_socket hs;
+  static char sensor_data[128];
+
+  PROCESS_BEGIN();
+
+  etimer_set(&et, CLOCK_SECOND * 2);
+
+  while (1) {
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
+    snprintf(sensor_data, sizeof(sensor_data), "{\"red\":\"%02X\",\"green\":\"%02X\",\"blue\":\"%02X\"}",
+             rgbc_sensor.value(RGBC_RED_BYTE),
+             rgbc_sensor.value(RGBC_GREEN_BYTE),
+             rgbc_sensor.value(RGBC_BLUE_BYTE));
+
+    http_socket_post(&hs, "http://192.168.2.7:9999/api/devices/1",
+                     (const uint8_t *)sensor_data, strlen((const char *)sensor_data),
+                     APPLICATION_JSON, http_socket_callback, 0);
+
+    etimer_restart(&et);
   }
 
   PROCESS_END();
