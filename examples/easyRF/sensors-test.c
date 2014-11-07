@@ -2,6 +2,7 @@
 #include "contiki-net.h"
 #include "http-socket.h"
 #include "log.h"
+#include "dev/leds.h"
 #include "dev/sensor_qtouch_wheel.h"
 #include "dev/sensor_joystick.h"
 #include "dev/sensor_bmp180.h"
@@ -80,9 +81,21 @@ void http_socket_callback(struct http_socket *s,
                           const uint8_t *data,
                           uint16_t datalen)
 {
+  char *str;
 
   if (ev == HTTP_SOCKET_DATA) {
-    INFO("%s", data);
+    str = (char *)data;
+    str[datalen] = '\0';
+    INFO("Response from the server: '%s'\n", str);
+
+    if (datalen > 0) {
+      char ledState = str[datalen - 1];
+      if (ledState == '1') {
+        leds_on(LEDS_GREEN);
+      } else {
+        leds_off(LEDS_GREEN);
+      }
+    }
   }
 }
 /*---------------------------------------------------------------------------*/
