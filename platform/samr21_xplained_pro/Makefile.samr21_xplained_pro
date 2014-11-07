@@ -32,8 +32,5 @@ CONTIKI_CPU = $(CONTIKI)/cpu/atsamr21
 # Define board file for openocd programming
 OPENOCD_BOARD = board/atmel_samd21_xplained_pro.cfg
 
-# Uncomment line when not using bootloader
-FLASH_START_ADDRESS=0x00000000
-
 # Include the CPU Makefile
 include $(CONTIKI_CPU)/Makefile.atsamr21

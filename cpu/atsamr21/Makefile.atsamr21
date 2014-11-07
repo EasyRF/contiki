@@ -1,16 +1,14 @@
 # SAMR21 port Makefile
 
 # Set build type
-SMALL=1
 DEBUG=0
 
-# Default to a optimized small build
-ifndef SMALL
-SMALL=1
+# Default to a non debug build
+ifndef DEBUG
 DEBUG=0
 endif
 
-# Toolchain binaries
+# Toolchain binaries, make sure these are in your PATH
 CC   = arm-none-eabi-gcc
 CPP  = arm-none-eabi-cpp
 AS   = arm-none-eabi-as
@@ -41,15 +39,11 @@ CFLAGS += -DUDD_ENABLE
 CFLAGS += -DTC_ASYNC=true
 CFLAGS += -D_QTOUCH_
 
-# Compile flags for optimization or debug
-ifeq ($(SMALL),1)
-CFLAGS += -Os
-#CFLAGS += -Werror
-else
+# Compile flags depending on debug or non-debug build
 ifeq ($(DEBUG),1)
-#CFLAGS += -DDEBUG
 CFLAGS += -O0 -gstabs+
-endif
+else
+CFLAGS += -Os
 endif
 
 # Assembler flags
@@ -162,13 +156,13 @@ CONTIKI_CPU_SOURCEFILES += sal.c
 # QTouch directories and library files
 ASF_QTOUCH = $(ASF_ROOT)/thirdparty/qtouch
 CONTIKI_CPU_DIRS += $(ASF_QTOUCH)/generic/include $(ASF_QTOUCH)/devspecific/sam0/samd/include
-LIB_PATH += -L$(ASF_QTOUCH)/devspecific/sam0/samd/lib/gcc
-LIB_PATH += -L$(ASF_ROOT)/thirdparty/CMSIS/Lib/GCC
-LIBS += -lsamd21_qt_gcc
-LIBS += -larm_cortexM0l_math
+LDFLAGS += -L$(ASF_QTOUCH)/devspecific/sam0/samd/lib/gcc
+LDFLAGS += -L$(ASF_ROOT)/thirdparty/CMSIS/Lib/GCC
+TARGET_LIBFILES += -lsamd21_qt_gcc
+TARGET_LIBFILES += -larm_cortexM0l_math
 
 # ASF Contiki glue files
-CONTIKI_CPU_SOURCEFILES += log.c clock-arch.c watchdog-arch.c rtimer-arch.c random-arch.c samr21-rf.c flash.c samr21-flash.c
+CONTIKI_CPU_SOURCEFILES += log.c clock-arch.c watchdog-arch.c rtimer-arch.c random-arch.c samr21-rf.c samr21-flash.c
 
 ### Use the existing debug I/O in cpu/arm/common
 CONTIKI_CPU_DIRS += ../arm/common/dbg-io
@@ -185,12 +179,12 @@ CUSTOM_RULE_LINK=yes
 
 # Set default flash start address if not defined
 ifndef FLASH_START_ADDRESS
-  FLASH_START_ADDRESS = 0x00010000
+  FLASH_START_ADDRESS = 0x00000000
 endif
 
 # Set default flash size if not defined
 ifndef FLASH_SIZE
-  FLASH_SIZE = 192K
+  FLASH_SIZE = 256K
 endif
 
 # RAM addresses for linker script
@@ -198,51 +192,22 @@ SRAM_START_ADDRESS = 0x20000000
 SRAM_SIZE = 0x00008000
 
 # Rule for generating the linker script
-.PHONY: $(CONTIKI_CPU)/atsamr21.lds
+#.PHONY: $(CONTIKI_CPU)/atsamr21.lds
 atsamr21.ld: $(CONTIKI_CPU)/atsamr21.lds
-	$(CPP) -DFLASH_START_ADDRESS=$(FLASH_START_ADDRESS) -DFLASH_SIZE=$(FLASH_SIZE) -DSRAM_START_ADDRESS=$(SRAM_START_ADDRESS) -DSRAM_SIZE=$(SRAM_SIZE) -DTIME=$(TIME) -I. -P -E $< -o $@
+	$(CPP) -DFLASH_START_ADDRESS=$(FLASH_START_ADDRESS) -DFLASH_SIZE=$(FLASH_SIZE) -DSRAM_START_ADDRESS=$(SRAM_START_ADDRESS) -DSRAM_SIZE=$(SRAM_SIZE) -DTIME=0 -I. -P -E $< -o $@
 
-# Rule for linking
-%-firmware.$(TARGET): atsamr21.ld %.co $(PROJECT_OBJECTFILES) $(PROJECT_LIBRARIES) contiki-$(TARGET).a
+# Custom link rule because of the custom linker script above
+%.$(TARGET): %.co $(PROJECT_OBJECTFILES) $(PROJECT_LIBRARIES) contiki-$(TARGET).a atsamr21.ld
 	$(TRACE_LD)
-	$(LD) $(LDFLAGS) $(LIB_PATH) -T atsamr21.ld ${filter-out %.ld %.a,$^} contiki-$(TARGET).a $(LIBS) -lc -lnosys -o $@
+	$(Q)$(LD) $(LDFLAGS) -T atsamr21.ld $(TARGET_STARTFILES) ${filter-out %.ld %.a,$^} ${filter %.a,$^} $(TARGET_LIBFILES) -lc -lnosys -o $@
 	$(SIZE) $@
-	cp $@ $@.elf
-
-############################################
-# Firmware signing
-############################################
-
-# The one and only firmware key
-FIRMWARE_KEY = 000102030405060708090a0b0c0d0e0f
-
-# Timestamp is used for versioning the firmware
-TIME=0 #$(shell date +%s)
-
-# In windows, Java classpath delimiter is different
-CP_DELIMITER=:
-ifeq ($(HOST_OS),Windows)
-	CP_DELIMITER=;
-endif
-
-# Rule for building the java application for signing the firmware
-SignFirmware.class: $(THSQ)/tools/java/SignFirmware.java
-	@cp $(THSQ)/tools/java/SignFirmware.java .
-	@javac -cp ".$(CP_DELIMITER)$(THSQ)/tools/java/lib/bcprov-jdk15on-147.jar" SignFirmware.java
-	@rm SignFirmware.java
-
-%.bin: %.$(TARGET)
-	$(OC) $(OCFLAGS) $< $@
-
-# Rule for building signed upgradeable firmware
-%.signed: %.bin SignFirmware.class
-	@java -cp ".$(CP_DELIMITER)$(THSQ)/tools/java/lib/bcprov-jdk15on-147.jar" SignFirmware ${filter-out SignFirmware.class,$^} $@ $(FIRMWARE_KEY) $(TIME)
 
 ############################################
 # Programming targets (openocd and/or gdb)
 ############################################
 
-OPENOCD_PROG  = openocd
+# Make sure openocd is in your PATH
+OPENOCD_PROG = openocd
 
 ifndef OPENOCD_BOARD
   OPENOCD_BOARD = board/atmel_samd21_xplained_pro.cfg
@@ -250,9 +215,6 @@ endif
 
 %.ocd-upload: %.$(TARGET)
 	$(OPENOCD_PROG) -f $(OPENOCD_BOARD) -c "init; targets; reset halt; sleep 500; flash probe 0; flash write_image $<; reset halt; resume; sleep 500; exit"
-
-%.elf: %.$(TARGET)
-	cp $< $<.elf
 
 %.gdb-upload: %.$(TARGET)
 	$(GDB) -ex "target remote localhost:3333" -ex "monitor reset halt" -ex "load" -ex "monitor reset" -ex "detach" -ex "quit" $<

@@ -30,7 +30,7 @@ CONTIKI_TARGET_SOURCEFILES += i2c_master_interface.c esd_spi_master.c sensor_bmp
 CONTIKI_SOURCEFILES += $(CONTIKI_TARGET_SOURCEFILES)
 
 # Target clean
-CLEAN += *.easyRF-gatway
+CLEAN += *.easyRF
 
 # Define the CPU directory
 CONTIKI_CPU = $(CONTIKI)/cpu/atsamr21
@@ -38,8 +38,9 @@ CONTIKI_CPU = $(CONTIKI)/cpu/atsamr21
 # Define board file for openocd programming
 OPENOCD_BOARD = $(CONTIKI)/platform/$(TARGET)/minimal_samr21_swd.cfg
 
-# Uncomment line when not using bootloader
-FLASH_START_ADDRESS=0x00000000
+# Uncomment lines when compiling application and using the bootloader
+#FLASH_START_ADDRESS=0x00001000
+#FLASH_SIZE = 192K
 
 # Include the CPU Makefile
 include $(CONTIKI_CPU)/Makefile.atsamr21
