@@ -92,8 +92,11 @@ PROCESS_THREAD(display_process, ev, data)
 
   canvas_line(&display_st7565s, 0, 0, width, height, 1);
   canvas_line(&display_st7565s, width, 0, 0, height, 1);
+
   canvas_bmp(&display_st7565s, "/logo_easyrf.bmp", 0, 0,
              DISPLAY_COLOR_BLACK, DISPLAY_COLOR_TRANSPARENT);
+
+  canvas_hline(&display_st7565s, 0, height / 2, width, 3, DISPLAY_COLOR_BLACK);
 
   canvas_text_init(&display_st7565s,"verdane8_bold_cfs.bmp",
                    width / 2, height - 20, width / 2, 20,
