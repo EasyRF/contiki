@@ -26,6 +26,9 @@
 #include "autofs.h"
 #include "canvas_text.h"
 
+#undef TRACE
+#define TRACE(...)
+
 
 /* Maximum height of character */
 #define FONT_MAX_HEIGHT       32
@@ -74,11 +77,11 @@ static bool font_loaded;
 static bool
 canvas_text_load(void)
 {
-  static uint8_t flattened_row[FONT_MAX_PX_PER_ROW/8];
-  uint8_t curr_ch=0;
-  display_pos_t tmp_x=0;
-  bool curr_px = 0, last_px=0;
   struct BMP_HEADER hdr;
+  static uint8_t flattened_row[FONT_MAX_PX_PER_ROW/8];
+  uint8_t curr_ch = 0;
+  display_pos_t tmp_x = 0;
+  bool curr_px = 0, last_px = 0;
   display_pos_t x, y;
   uint8_t bitmask = 0, currbyte = 0;
   char ch;
@@ -116,8 +119,7 @@ canvas_text_load(void)
   TRACE("font data offset %d", curr_font_dataoffset);
 
   /* Move pointer in file to start of imagedata */
-  cfs_offset_t os = autofs_seek(font_file_fd, curr_font_dataoffset, CFS_SEEK_SET);
-  TRACE("font file offset = %d", os);
+  autofs_seek(font_file_fd, curr_font_dataoffset, CFS_SEEK_SET);
 
   /* Fill flattened_row */
   memset(flattened_row,0,sizeof(flattened_row));
@@ -147,7 +149,7 @@ canvas_text_load(void)
         if (curr_ch < FONT_MAX_CHARS) {
           charx[curr_ch] = tmp_x;
           charw[curr_ch] = x - tmp_x;
-          INFO("CHAR %c starts @  %d and is %d wide.",curr_ch + FONT_FIRST_CH, charx[curr_ch], charw[curr_ch]);
+          TRACE("CHAR %c starts @  %d and is %d wide.",curr_ch + FONT_FIRST_CH, charx[curr_ch], charw[curr_ch]);
           curr_ch++;
         } else {
           WARN("Not enough room for new character");

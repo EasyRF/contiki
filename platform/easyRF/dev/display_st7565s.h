@@ -27,8 +27,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+enum st7565s_color {
+  DISPLAY_COLOR_WHITE,
+  DISPLAY_COLOR_BLACK,
+  DISPLAY_COLOR_TRANSPARENT
+};
+
 /* Monochrome display */
-typedef uint8_t display_color_t;
+typedef enum st7565s_color display_color_t;
 
 /* Resolution fits in a uin8t_t */
 typedef uint16_t display_pos_t;

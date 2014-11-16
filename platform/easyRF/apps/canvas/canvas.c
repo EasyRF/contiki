@@ -134,7 +134,7 @@ void
 canvas_bmp(const struct display_driver * display,
            const char * filename,
            display_pos_t offsetx, display_pos_t offsety,
-           display_color_t color)
+           display_color_t fg_color, display_color_t bg_color)
 {
   int fd;
   struct BMP_HEADER hdr;
@@ -174,7 +174,7 @@ canvas_bmp(const struct display_driver * display,
         bitmask = 0x80;
         autofs_read(fd, &image_byte, 1);
       }
-      display->set_px(x+offsetx, hdr.height-(y+offsety)-1, ((image_byte & bitmask) != bitmask) ? color : 0);
+      display->set_px(x+offsetx, hdr.height-(y+offsety)-1, ((image_byte & bitmask) != bitmask) ? fg_color : bg_color);
       bitmask >>= 1;
     }
 

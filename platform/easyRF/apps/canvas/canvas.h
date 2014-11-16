@@ -68,6 +68,6 @@ void canvas_invert      (const struct display_driver * display,
 void canvas_bmp         (const struct display_driver * display,
                          const char * filename,
                          display_pos_t offsetx, display_pos_t offsety,
-                         display_color_t color);
+                         display_color_t fg_color, display_color_t bg_color);
 
 #endif /* CANVAS_H_ */

@@ -261,10 +261,14 @@ set_px(display_pos_t x, display_pos_t y, display_color_t color)
   mask = 1 << (y % 8);
 
   /* Set or clear a pixel */
-  if (color) {
+  if (color == DISPLAY_COLOR_BLACK) {
     *pos |= mask;
-  } else {
+  } else if (color == DISPLAY_COLOR_WHITE) {
     *pos &= ~mask;
+  } else if (color == DISPLAY_COLOR_TRANSPARENT) {
+    /* Do nothing */
+  } else {
+    WARN("Unknown color");
   }
 
   /* Mark for update */
