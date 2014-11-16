@@ -28,9 +28,9 @@
 #include <stdint.h>
 
 enum st7565s_color {
-  DISPLAY_COLOR_WHITE,
-  DISPLAY_COLOR_BLACK,
-  DISPLAY_COLOR_TRANSPARENT
+  DISPLAY_COLOR_WHITE = 0,
+  DISPLAY_COLOR_BLACK = 1,
+  DISPLAY_COLOR_TRANSPARENT = 3
 };
 
 /* Monochrome display */

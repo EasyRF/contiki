@@ -32,11 +32,11 @@
 #define ST7565S_BITS_PER_PX                 1       /* 1 BIT PER PIXEL      */
 #define ST7565S_X_SIZE_2LOG                 7       /* 128 pixels wide -> log(128)/log2 = 7      */
 #define ST7565S_Y_SIZE_2LOG                 6       /* 64  pixels wide -> log(64 )/log2 = 6      */
-#define ST7565S_WIDTH                       (1<<ST7565S_X_SIZE_2LOG)
-#define ST7565S_HEIGHT                      (1<<ST7565S_Y_SIZE_2LOG)
-#define ST7565S_DATA_SIZE_X                 (ST7565S_WIDTH*ST7565S_BITS_PER_PX/8)
+#define ST7565S_WIDTH                       (1 << ST7565S_X_SIZE_2LOG)
+#define ST7565S_HEIGHT                      (1 << ST7565S_Y_SIZE_2LOG)
+#define ST7565S_DATA_SIZE_X                 (ST7565S_WIDTH * ST7565S_BITS_PER_PX / 8)
 #define ST7565S_DATA_SIZE_Y                 ST7565S_HEIGHT
-#define ST7565S_DATA_SIZE                   (ST7565S_DATA_SIZE_X*ST7565S_DATA_SIZE_Y)
+#define ST7565S_DATA_SIZE                   (ST7565S_DATA_SIZE_X * ST7565S_DATA_SIZE_Y)
 #define ST7565S_ERR                         -1
 
 /* Layer configuration */
@@ -103,10 +103,10 @@ static bool flip_y;
 static struct etimer update_timer;
 
 /* Easy access pointers */
-static unsigned char * pdata_start=0;
-static unsigned char * pdata_end=0;
-static unsigned char * pdata_active_start=0;
-static unsigned char * pdata_active_end=0;
+static unsigned char * pdata_start;
+static unsigned char * pdata_end;
+static unsigned char * pdata_active_start;
+static unsigned char * pdata_active_end;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(st7565s_process, "ST7565s display process");
@@ -114,7 +114,7 @@ PROCESS(st7565s_process, "ST7565s display process");
 static inline unsigned char *
 get_buffer_at_position(display_pos_t x, display_pos_t y)
 {
-  return (unsigned char *)( (int)pdata_start + ( (x<<(ST7565S_Y_SIZE_2LOG-3)) + (y>>3) ) );
+  return (unsigned char *)( (int)pdata_start + ( (x << (ST7565S_Y_SIZE_2LOG - 3)) + (y >> 3) ) );
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -142,16 +142,22 @@ set_defaults(void)
   freezed        = 0;
   selected_layer = 0;
   needs_update   = true;
+
   etimer_set(&update_timer, ST7565S_DEFAULT_UPDATE_INTERVAL);
+
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 static int
 on(void)
 {
-  write_command(ST7565S_CMD_POWER|7); /* Power control */
-  write_command(ST7565S_CMD_ONOFF|1); /* Enable display */
+  /* Power control */
+  write_command(ST7565S_CMD_POWER | 7);
 
+  /* Enable display */
+  write_command(ST7565S_CMD_ONOFF | 1);
+
+  /* Start auto update process */
   process_start(&st7565s_process, 0);
 
   return 0;
@@ -160,18 +166,24 @@ on(void)
 static int
 off(void)
 {
+  /* End auto update process */
   process_exit(&st7565s_process);
 
-  write_command(ST7565S_CMD_POWER|0); /* Power control */
-  write_command(ST7565S_CMD_ONOFF|0); /* Enable display */
+  /* Power control */
+  write_command(ST7565S_CMD_POWER | 0);
+
+  /* Enable display */
+  write_command(ST7565S_CMD_ONOFF | 0);
+
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 static int
 clear(void)
 {
-  memset(data,0,sizeof(data));
+  memset(data, 0, sizeof(data));
   needs_update = true;
+
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -188,10 +200,10 @@ force_update(void)
     return 0;
   }
 
-  for (i=0;i<ST7565S_DATA_SIZE;i++) {
-    if (i%ST7565S_WIDTH==0) {
-      /* At row start, first 4 columns are not used by display */
-      ST7565S_SET_POS(4, i>>ST7565S_X_SIZE_2LOG);
+  for (i = 0; i < ST7565S_DATA_SIZE; i++) {
+    if (i % ST7565S_WIDTH == 0) {
+      /* New row, skip first 4 columns since they are not used by display */
+      ST7565S_SET_POS(4, i >> ST7565S_X_SIZE_2LOG);
     }
     write_data(pdata_active_start[((i%128)<<(ST7565S_Y_SIZE_2LOG-3)) + (i>>ST7565S_X_SIZE_2LOG)]);
   }
@@ -312,14 +324,15 @@ get_px(display_pos_t x, display_pos_t y)
 static int
 invert_px(display_pos_t x, display_pos_t y)
 {
-  return set_px(x, y, ~get_px(x, y));
+  return set_px(x, y, get_px(x, y) == DISPLAY_COLOR_WHITE ?
+                  DISPLAY_COLOR_BLACK : DISPLAY_COLOR_WHITE);
 }
 /*---------------------------------------------------------------------------*/
 static int
 set_contrast(short c)
 {
   contrast = c;
-  write_command(0x81);
+  write_command(ST7565S_CMD_CONTRAST);
   write_command(contrast);
   return 0;
 }
@@ -413,12 +426,6 @@ init(void)
   write_command(ST7565S_CMD_ADC_SEL|1);                         /* Normal ADC Segment driver Direction */
   write_command(ST7565S_CMD_COMMON_OUT_MODE_SEL|0);             /* Normal Common Output Mode Select */
   write_command(ST7565S_CMD_V_RATIO|5);                         /* V0 Voltage Internal Resistor Ratio Set 0-7 */
-  // INITIALIZE DDRAM
-  //  2 - Display start line set
-  //  3 - Page address set
-  //  4 - Column address set
-  //  6 - Display data write
-  //  1 - Display ON/OFF
 
   clear();
   set_contrast(contrast);
