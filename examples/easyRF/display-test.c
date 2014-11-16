@@ -36,6 +36,38 @@
 PROCESS(display_process, "DISPLAY Process");
 AUTOSTART_PROCESSES(&display_process);
 /*---------------------------------------------------------------------------*/
+static void
+copy_file_from_romfs_to_cfs(const char * from, const char * to)
+{
+  static char buf[128];
+  cfs_offset_t filesize, read, pos;
+
+  /* Format CFS */
+  cfs_coffee_format();
+
+  /* Open file for writing in CFS */
+  int cfs_fd = cfs_open(to, CFS_WRITE);
+
+  /* Open file for reading in ROMFS */
+  int rom_fd = romfs_open(from, CFS_READ);
+
+  /* Determine file size */
+  filesize = romfs_seek(rom_fd, 0, CFS_SEEK_END) - 1;
+
+  /* Restore offset to start of file */
+  romfs_seek(rom_fd, 0, CFS_SEEK_SET);
+
+  /* Copy file data from romfs to cfs in chunks of 128 bytes */
+  for (pos = 0; pos < filesize; pos += read) {
+    read = romfs_read(rom_fd, buf, sizeof(buf));
+    cfs_write(cfs_fd, buf, read);
+  }
+
+  /* Close both files */
+  cfs_close(cfs_fd);
+  romfs_close(rom_fd);
+}
+/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(display_process, ev, data)
 {
   PROCESS_BEGIN();
@@ -54,34 +86,8 @@ PROCESS_THREAD(display_process, ev, data)
   /* Open external flash */
   EXTERNAL_FLASH.open();
 
-#if 0
-  static char buf[128];
-  cfs_offset_t filesize, read, pos;
-
-  /* Format cfs */
-  cfs_coffee_format();
-
-  /* Open file for writing in CFS */
-  int cfs_fd = cfs_open("test.bmp", CFS_WRITE);
-
-  /* Opend file for reading in romfs */
-  int rom_fd = romfs_open("/verdane8_bold.bmp", CFS_READ);
-
-  /* Determine file size */
-  filesize = romfs_seek(rom_fd, 0, CFS_SEEK_END) - 1;
-
-  /* Restore offset to start of file */
-  romfs_seek(rom_fd, 0, CFS_SEEK_SET);
-
-  /* Copy file data from romfs to cfs in chunks of 128 bytes */
-  for (pos = 0; pos < filesize; pos += read) {
-    read = romfs_read(rom_fd, buf, sizeof(buf));
-    cfs_write(cfs_fd, buf, read);
-  }
-
-  /* Close both files */
-  cfs_close(cfs_fd);
-  romfs_close(rom_fd);
+#if 1
+  copy_file_from_romfs_to_cfs("/verdane8_bold.bmp", "verdane8_bold_cfs.bmp");
 #endif
 
   canvas_line(&display_st7565s, 0, 0, width, height, 1);
@@ -89,7 +95,7 @@ PROCESS_THREAD(display_process, ev, data)
   canvas_bmp(&display_st7565s, "/logo_easyrf.bmp", 0, 0,
              DISPLAY_COLOR_BLACK, DISPLAY_COLOR_TRANSPARENT);
 
-  canvas_text_init(&display_st7565s,"test.bmp",
+  canvas_text_init(&display_st7565s,"verdane8_bold_cfs.bmp",
                    width / 2, height - 20, width / 2, 20,
                    DISPLAY_COLOR_BLACK, DISPLAY_COLOR_TRANSPARENT);
 

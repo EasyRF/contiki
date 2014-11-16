@@ -68,8 +68,8 @@ find_file(const char *name)
 
   /* Search file in embedded file array */
   for(i = 0; i < NR_OF_EMBFILES; i++) {
-    TRACE("%s == %s", embfile[i].filename, name);
     if (strcmp((const char *)embfile[i].filename, name) == 0) {
+      TRACE("ROMFS found %s", embfile[i].filename);
       return &embfile[i];
     }
   }

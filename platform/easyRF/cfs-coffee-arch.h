@@ -32,7 +32,7 @@
 #define COFFEE_PAGE_SIZE        256UL /* Smallest read/write block. UL is needed because: sizeof(COFFEE_PAGE_SIZE) >= sizeof(cfs_offset_t) */
 #define COFFEE_START            0UL    /* Start address of memory */
 #define COFFEE_SIZE             (1024UL * 1024UL) /* Use 1MB for now */
-#define COFFEE_NAME_LENGTH      16
+#define COFFEE_NAME_LENGTH      24
 #define COFFEE_MAX_OPEN_FILES   6
 #define COFFEE_FD_SET_SIZE      8
 #ifdef COFFEE_CONF_DYN_SIZE
