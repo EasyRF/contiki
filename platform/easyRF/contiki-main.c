@@ -34,6 +34,8 @@
 #include "dev/sensor_joystick.h"
 #include "dev/sensor_qtouch_wheel.h"
 #include "dev/display_st7565s.h"
+#include "flash.h"
+#include "cfs-coffee.h"
 #include "ip64.h"
 #include "lib/random.h"
 #include "net/netstack.h"
@@ -121,6 +123,7 @@ main(void)
   leds_init();
   leds_off(LEDS_WHITE);
   leds_on(LEDS_GREEN);
+  display_st7565s.init();
 
   dbg_init();
 
@@ -130,12 +133,10 @@ main(void)
 
   INFO("Main CPU clock: %ld", system_cpu_clock_get_hz());
 
-  displ_drv_st7565s.init();
-
   process_init();
 
-  watchdog_init();
-  watchdog_start();
+//  watchdog_init();
+//  watchdog_start();
 
   rtimer_init();
 

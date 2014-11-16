@@ -1,18 +1,40 @@
 #ifndef __DISPL_H__
 #define __DISPL_H__
 
+#include "contiki.h"
+#include "display-conf.h"
 
-#define DISPL_DATA_SIZE_X   ((1<<DISPL_X_SIZE_2LOG)*DISPL_BITS_PER_PX/8)
-#define DISPL_DATA_SIZE_Y   (1<<DISPL_Y_SIZE_2LOG)
-#define DISPL_DATA_SIZE     (DISPL_DATA_SIZE_X*DISPL_DATA_SIZE_Y)
 
-/* Generic display driver return values. */
+/* Display get/set parameter types */
+typedef clock_time_t display_value_t;
+typedef unsigned display_param_t;
+
+
+/* Display properties */
 enum {
-  DISPL_OK,
-  DISPL_ERR,
-  DISPL_ERR_NOTFOUND,
+  DISPLAY_WIDTH,
+  DISPLAY_HEIGHT,
+  DISPLAY_COLOR_DEPTH,
+  DISPLAY_CONTRAST,
+  DISPLAY_BACKLIGHT,
+  DISPLAY_UPDATE_INTERVAL,
+  DISPLAY_FLIP_X,
+  DISPLAY_FLIP_Y,
+  DISPLAY_FREEZE,
+  DISPLAY_ACTIVE_LAYER
 };
 
+
+/* Display return values when setting or getting display parameters. */
+typedef enum {
+  DISPLAY_RESULT_OK,
+  DISPLAY_RESULT_NOT_SUPPORTED,
+  DISPLAY_RESULT_INVALID_VALUE,
+  DISPLAY_RESULT_ERROR
+} display_result_t;
+
+
+/* Display driver API */
 struct display_driver {
 
   /** Initialize display */
@@ -24,15 +46,25 @@ struct display_driver {
   /** Switch off the display. */
   int (* off)(void);
 
-  /** Stop updating on the display. */
-  int (* freeze)(bool freeze);
-
   /** Clear display. */
   int (* clear)(void);
 
   /** Force a complete refresh the display. */
   int (* force_update)(void);
 
+  /** Change pixel */
+  int (* set_px)(display_pos_t x, display_pos_t y, display_color_t color);
+
+  /** Invert pixel */
+  int (* invert_px)(display_pos_t x, display_pos_t y);
+
+  /** Set value */
+  display_result_t (* set_value)(display_param_t key, display_value_t value);
+
+  /** Get value */
+  display_result_t (* get_value)(display_param_t key, display_value_t * value);
+
+#if 0
   /** Select the layer that is updated. */
   int (* layer_select)(short layerid);
 
@@ -41,15 +73,7 @@ struct display_driver {
 
   /** Select the layer that is showed. */
   int (* layer_cpy)(short to, short from);
-
-  /** Change pixel */
-  int (* set_px)(int x, int y, COLOR_t color);
-
-  /** Change the contrast (0=0%, 100=100%). */
-  int (* set_contrast)(short contrast);
-
-  /** Toggle backlight */
-  int (* set_backlight)(bool on);
+#endif
 
 };
 

@@ -4,6 +4,10 @@
 #include "log.h"
 #include "flash_sst25vf032b.h"
 
+#undef TRACE
+#define TRACE(...)
+
+
 /* Bitshift helper */
 #define BM(pos)         ((uint32_t)1 << pos)
 
@@ -183,6 +187,8 @@ erase(unsigned long from, unsigned long to)
 {
   unsigned long addr;
 
+  TRACE("Erasing from address %ld to address %ld", from, to);
+
   /* Full chip erase requested */
   if (from == 0 && to == SST25VF032B_SIZE) {
     chip_erase();
@@ -213,6 +219,8 @@ read(unsigned long addr, unsigned char * buffer, unsigned long len)
 {
   unsigned long i;
 
+  TRACE("Read %ld bytes from address %ld", len, addr);
+
   sst25vf032b_arch_spi_select();
   sst25vf032b_arch_spi_write(READ_CMD);
   send_address(addr);
@@ -230,8 +238,7 @@ write(unsigned long addr, const unsigned char * buffer, unsigned long len)
   unsigned long start;
   const unsigned char * ptr;
 
-  /* Erase area before writing */
-  erase(addr, addr + len);
+  TRACE("Writing %ld bytes to address %ld", len, addr);
 
   ptr = buffer;
 

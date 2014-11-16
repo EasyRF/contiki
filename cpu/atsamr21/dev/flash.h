@@ -24,6 +24,9 @@
 #ifndef __FLASH_H__
 #define __FLASH_H__
 
+#include <stdint.h>
+
+
 struct flash_driver {
 
   int (* open)(void);

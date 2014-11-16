@@ -1,16 +1,20 @@
 # easyRF-gatway platform makefile
 
+# Add current dir
+CONTIKI_TARGET_DIRS = . dev
+
 # Select Contiki netstack modules
 MODULES += core/net core/net/ipv6 core/net/mac core/net/ip \
-           core/net/rpl core/net/rime core/net/mac/contikimac \
-           core/net/llsec
+		   core/net/rpl core/net/rime core/net/mac/contikimac \
+		   core/net/llsec
 
 # Add ethernet driver ENC28J60
 MODULES += core/net/ip64 dev/enc28j60
 MODULES += core/net/ip64-addr
 
-# Add current dir
-CONTIKI_TARGET_DIRS  = . dev
+# Add canvas app
+CONTIKI_TARGET_DIRS += apps/canvas apps/romfs apps/autofs
+CONTIKI_TARGET_SOURCEFILES += canvas.c canvas_text.c files.c romfs.c autofs.c
 
 # Add platform specific definition for ASF
 CFLAGS += -DBOARD=USER_BOARD
@@ -20,6 +24,9 @@ CONTIKI_TARGET_DIRS += $(ASF_ROOT)/common/boards
 
 # Add generic contiki files
 CONTIKI_TARGET_SOURCEFILES += leds.c sensors.c
+
+# Add cfs-coffee files
+CONTIKI_TARGET_SOURCEFILES += cfs-coffee.c cfs-coffee-arch.c
 
 # Platform specific source files
 CONTIKI_TARGET_SOURCEFILES += contiki-main.c leds-arch.c uart_rs232.c uart_rs485.c uart_usb.c
@@ -44,3 +51,10 @@ OPENOCD_BOARD = $(CONTIKI)/platform/$(TARGET)/openocd_samr21_swd.cfg
 
 # Include the CPU Makefile
 include $(CONTIKI_CPU)/Makefile.atsamr21
+
+# Rebuild embedded files .. this needed cleanup!
+ROMFS_DIR = $(CONTIKI)/platform/easyRF/apps/romfs
+files.c: fsdata
+fsdata:
+	cd $(ROMFS_DIR);\
+	perl -W makefsdata;

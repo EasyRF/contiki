@@ -12,7 +12,6 @@
  *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
-
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -21,15 +20,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef CONF_BOARD_H
-#define CONF_BOARD_H
 
-/* Most settings are defined in user_board.h */
+#ifndef CANVAS_TEXT_H_
+#define CANVAS_TEXT_H_
 
-#define RF_CAP_TRIM                      0x0F
+#include "canvas.h"
 
-#define AT86RFX_SPI_BAUDRATE		 5000000UL
+int canvas_text_init(const struct display_driver * display,
+                     const char * filename,
+                     display_pos_t startx, display_pos_t starty,
+                     display_pos_t width, display_pos_t height,
+                     display_color_t textcolor, display_color_t bgcolor);
 
-#define DISPLAY_DRV                      displ_drv_st7565s
+int canvas_putc(char ch);
+int canvas_puts(const char * s);
 
-#endif // CONF_BOARD_H
+#endif /* CANVAS_TEXT_H_ */
