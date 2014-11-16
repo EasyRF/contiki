@@ -30,6 +30,4 @@
 
 #define AT86RFX_SPI_BAUDRATE		 5000000UL
 
-#define DISPLAY_DRV                      displ_drv_st7565s
-
 #endif // CONF_BOARD_H
