@@ -21,13 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 #include <asf.h>
 #include "contiki.h"
 #include "esd_spi_master.h"
 #include "log.h"
 
 
-static struct spi_slave_inst slave;
+static struct spi_slave_inst st7565s_spi_slave;
 
 
 /*---------------------------------------------------------------------------*/
@@ -62,7 +63,7 @@ st7565s_arch_spi_init(void)
   /* Congfigure slave SPI device */
   spi_slave_inst_get_config_defaults(&slave_dev_config);
   slave_dev_config.ss_pin = DISPLAY_CS;
-  spi_attach_slave(&slave, &slave_dev_config);
+  spi_attach_slave(&st7565s_spi_slave, &slave_dev_config);
 
   /* Configure backlight pin */
   struct port_config pin_conf;
@@ -77,14 +78,14 @@ uint8_t
 st7565s_arch_spi_write(uint8_t data)
 {
   uint16_t in;
-  spi_transceive_wait(&spi_master_instance, data, &in);
+  spi_transceive_wait(&esd_spi_master_instance, data, &in);
   return in & 0xff;
 }
 /*---------------------------------------------------------------------------*/
 void
 st7565s_arch_spi_select(bool is_data)
 {
-  spi_select_slave(&spi_master_instance, &slave, true);
+  spi_select_slave(&esd_spi_master_instance, &st7565s_spi_slave, true);
 
   configure_miso(true);
 
@@ -98,7 +99,7 @@ st7565s_arch_spi_deselect(void)
 
   configure_miso(false);
 
-  spi_select_slave(&spi_master_instance, &slave, false);
+  spi_select_slave(&esd_spi_master_instance, &st7565s_spi_slave, false);
 }
 /*---------------------------------------------------------------------------*/
 void

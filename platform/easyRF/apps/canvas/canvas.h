@@ -24,7 +24,7 @@
 #ifndef CANVAS_H_
 #define CANVAS_H_
 
-#include "display_driver.h"
+#include "display.h"
 
 struct BMP_HEADER {
   unsigned short int signature;                /* Signature                   */
