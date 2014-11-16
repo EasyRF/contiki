@@ -1,7 +1,7 @@
 #ifndef FILES_H_
 #define FILES_H_
 
-#define NR_OF_EMBFILES         2
+#define NR_OF_EMBFILES         7
 
 struct embedded_file{
   const unsigned char * filename;
