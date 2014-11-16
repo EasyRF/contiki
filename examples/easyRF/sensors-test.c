@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "compiler.h"
 #include "contiki.h"
 #include "contiki-net.h"
 #include "http-socket.h"
@@ -96,7 +97,7 @@ PROCESS_THREAD(sensors_test_process, ev, data)
     }
 
     /* Draw a pixel on the screen at each sensor change */
-    displ_drv_st7565s.set_px(cnt % 128, cnt / 128, 1);
+    display_st7565s.set_px(cnt % 128, cnt / 128, 1);
     cnt++;
   }
 
@@ -140,6 +141,12 @@ PROCESS_THREAD(http_post_process, ev, data)
   while (1) {
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
+    uint32_t red   = rgbc_sensor.value(TCS3772_RED_BYTE);
+    uint32_t green = rgbc_sensor.value(TCS3772_GREEN_BYTE);
+    uint32_t blue  = rgbc_sensor.value(TCS3772_BLUE_BYTE);
+
+    uint32_t rgb_max = max(red, max(green, blue));
+
     snprintf(sensor_data, sizeof(sensor_data),
              "{"
                "\"red\":\"%02X\","
@@ -151,9 +158,9 @@ PROCESS_THREAD(http_post_process, ev, data)
                "\"joystick\":\"%s\","
                "\"wheel\":%d"
              "}",
-             rgbc_sensor.value(TCS3772_RED_BYTE),
-             rgbc_sensor.value(TCS3772_GREEN_BYTE),
-             rgbc_sensor.value(TCS3772_BLUE_BYTE),
+             (uint8_t)(red   * 255 / rgb_max),
+             (uint8_t)(green * 255 / rgb_max),
+             (uint8_t)(blue  * 255 / rgb_max),
              pressure_sensor.value(BMP180_PRESSURE),
              pressure_sensor.value(BMP180_TEMPERATURE),
              rh_sensor.value(SI7020_HUMIDITY),
