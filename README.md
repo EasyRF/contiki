@@ -35,7 +35,7 @@ To run Contiki on the Evaluation Kit for ERF1000 you will need to install a few 
 
 You need this to cross compile software for ARM CPU's. There are pre-build binaries for all major OS'es.
 
-[https://launchpad.net/gcc-arm-embedded](GNU Tools for ARM Embedded Processors)
+[https://launchpad.net/gcc-arm-embedded](https://launchpad.net/gcc-arm-embedded)
 
 Make sure the bin directory (containing the executables) is in your __PATH__.
 
@@ -45,9 +45,9 @@ Most developers will already have make installed. But if not you need to install
 
 ###### OSX
 
-Install the Command Line Tools you can find them here: 
+Install the Command Line Tools you can find them here:
 
-[https://developer.apple.com/opensource/](https://developer.apple.com/opensource/) 
+[https://developer.apple.com/opensource/](https://developer.apple.com/opensource/)
 
 ###### Linux
 
@@ -55,7 +55,7 @@ Install the Command Line Tools you can find them here:
 
 ###### Windows
 
-Install the make package from GNUWin32 you can find it here: 
+Install the make package from GNUWin32 you can find it here:
 
 [http://gnuwin32.sourceforge.net/packages/make.htm](http://gnuwin32.sourceforge.net/packages/make.htm)
 
@@ -86,7 +86,7 @@ The easiest way to get sources is to install Git on your machine and clone the r
 
 Alternatively you can download the sources from GitHub as a ZIP-file.
 
-Because the CPU and platfrom drivers depend on ASF (see step 3), you will need to unzip the ASF archive in contiki/thirdparty/atmel. For example: `contiki/thirdparty/atmel/xdk-asf-3.20.1` 
+Because the CPU and platfrom drivers depend on ASF (see step 3), you will need to unzip the ASF archive in contiki/thirdparty/atmel. For example: `contiki/thirdparty/atmel/xdk-asf-3.20.1`
 
 And make sure the `ASF_ROOT` variable in `contiki/cpu/atsamr21/Makefile.atsamr21` contains the correct path for the ASF library. The current code is developed/tested with version 3.20.1.
 
