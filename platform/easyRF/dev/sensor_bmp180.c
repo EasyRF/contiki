@@ -170,19 +170,6 @@ read_uncompensated_temperature(uint16_t * temp)
 
   *temp = BE16_TO_CPU(*temp);
 
-//  /* Read raw temperature from ADC output register */
-//  read_cmd = REG_OUT_MSB;
-//  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &msb, sizeof(msb))) {
-//    return false;
-//  }
-//  read_cmd = REG_OUT_LSB;
-//  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &lsb, sizeof(lsb))) {
-//    return false;
-//  }
-
-//  /* Convert bytes to 16-bit value */
-//  *temp = (((uint16_t)msb << 8) | lsb);
-
   /* Ok */
   return true;
 }
@@ -190,7 +177,7 @@ read_uncompensated_temperature(uint16_t * temp)
 static bool
 read_uncompenstated_pressure(uint32_t * pressure, uint8_t oss)
 {
-  uint8_t read_cmd, write_cmd[2];// msb, lsb, xlsb;
+  uint8_t read_cmd, write_cmd[2];
 
   /* Setup meaurement control register for reading pressure */
   write_cmd[0] = REG_MEAS_CTRL;
@@ -202,30 +189,17 @@ read_uncompenstated_pressure(uint32_t * pressure, uint8_t oss)
   /* Wait for pressure conversion, depending on number of samples */
   clock_delay_usec(WAIT_TIME_PRESSURE(oss));
 
+  /* Clear variable, since only 24 bits will be written */
+  *pressure = 0;
+
   /* Read raw temperature from ADC output register */
   read_cmd = REG_OUT_MSB;
   if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), ((uint8_t *)pressure) + 1, 3)) {
     return false;
   }
 
+  /* Convert endianess from Big Endian to CPU Endian */
   *pressure = BE32_TO_CPU(*pressure);
-
-//  /* Read raw pressure from ADC output register */
-//  read_cmd = REG_OUT_MSB;
-//  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &msb, sizeof(msb))) {
-//    return false;
-//  }
-//  read_cmd = REG_OUT_LSB;
-//  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &lsb, sizeof(lsb))) {
-//    return false;
-//  }
-//  read_cmd = REG_OUT_XLSB;
-//  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &xlsb, sizeof(xlsb))) {
-//    return false;
-//  }
-
-//  /* Convert bytes to 24-bit value */
-//  *pressure = (((uint32_t)msb << 16) | ((uint32_t)lsb << 8) | xlsb);
 
   /* Correct value based on oversampling ratio */
   *pressure >>= (8 - oss);

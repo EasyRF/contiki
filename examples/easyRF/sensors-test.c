@@ -141,9 +141,9 @@ PROCESS_THREAD(http_post_process, ev, data)
   while (1) {
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
-    uint32_t red   = rgbc_sensor.value(TCS3772_RED_BYTE);
-    uint32_t green = rgbc_sensor.value(TCS3772_GREEN_BYTE);
-    uint32_t blue  = rgbc_sensor.value(TCS3772_BLUE_BYTE);
+    uint32_t red   = rgbc_sensor.value(TCS3772_RED);
+    uint32_t green = rgbc_sensor.value(TCS3772_GREEN);
+    uint32_t blue  = rgbc_sensor.value(TCS3772_BLUE);
 
     uint32_t rgb_max = max(red, max(green, blue));
 
