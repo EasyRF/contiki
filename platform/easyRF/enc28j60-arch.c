@@ -29,9 +29,10 @@
 #include "log.h"
 
 
-#define ENC28J60_IRQ_PIN              PIN_PA23
-#define ENC28J60_IRQ_PINMUX           PINMUX_PA23A_EIC_EXTINT7
-#define ENC28J60_IRQ_CHANNEL          7
+enum cs_pin_mode {
+  CS_AS_SPI_OUPUT_PIN,
+  CS_AS_EXTINT_INPUT_PIN
+};
 
 
 /* Keep the configurations static to be able to apply them quickly */
@@ -39,33 +40,48 @@ static struct extint_chan_conf enc28j60_extint_conf;
 static struct spi_slave_inst_config slave_dev_config;
 static struct spi_slave_inst enc28j60_spi_slave;
 
+/* Current CS pin mode */
+static enum cs_pin_mode current_cs_pin_mode;
+
+/*---------------------------------------------------------------------------*/
+static void
+configure_cs_pin(enum cs_pin_mode mode)
+{
+  if (current_cs_pin_mode != mode) {
+    if (mode == CS_AS_SPI_OUPUT_PIN) {
+      /* Disable the interrupt handler */
+      extint_chan_disable_callback(ETHERNET_IRQ_CHANNEL,
+                                   EXTINT_CALLBACK_TYPE_DETECT);
+
+      /* Apply SPI slave configuration */
+      spi_attach_slave(&enc28j60_spi_slave, &slave_dev_config);
+    } else {
+      /* Apply extint configuration */
+      extint_chan_set_config(ETHERNET_IRQ_CHANNEL, &enc28j60_extint_conf);
+
+      /* Enable the interrupt handler */
+      extint_chan_enable_callback(ETHERNET_IRQ_CHANNEL,
+                                  EXTINT_CALLBACK_TYPE_DETECT);
+    }
+    /* Save new mode */
+    current_cs_pin_mode = mode;
+  }
+}
 /*---------------------------------------------------------------------------*/
 static void
 extint_handler(void)
 {
   /* Clear the extint interrupt */
-  extint_chan_clear_detected(ENC28J60_IRQ_CHANNEL);
+  extint_chan_clear_detected(ETHERNET_IRQ_CHANNEL);
+
+  /* Confgure the pin as output.
+   * This will also make the CS pin level high to prevent keeping the ethernet
+   * device as selected slave device.
+   */
+  configure_cs_pin(CS_AS_SPI_OUPUT_PIN);
 
   /* Call the interrupt handler */
   enc28j60_interrupt();
-}
-/*---------------------------------------------------------------------------*/
-static void
-configure_cs(bool as_output)
-{
-  if (as_output) {
-    /* Disable the interrupt handler */
-    extint_chan_disable_callback(ENC28J60_IRQ_CHANNEL, EXTINT_CALLBACK_TYPE_DETECT);
-
-    /* Apply SPI slave configuration */
-    spi_attach_slave(&enc28j60_spi_slave, &slave_dev_config);
-  } else {
-    /* Apply extint configuration */
-    extint_chan_set_config(ENC28J60_IRQ_CHANNEL, &enc28j60_extint_conf);
-
-    /* Enable the interrupt handler */
-    extint_chan_enable_callback(ENC28J60_IRQ_CHANNEL, EXTINT_CALLBACK_TYPE_DETECT);
-  }
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -76,8 +92,8 @@ enc28j60_arch_spi_init(void)
 
   /* Setup extint configuration for receiving interrupts from the enc28j60 */
   extint_chan_get_config_defaults(&enc28j60_extint_conf);
-  enc28j60_extint_conf.gpio_pin = ENC28J60_IRQ_PIN;
-  enc28j60_extint_conf.gpio_pin_mux = ENC28J60_IRQ_PINMUX;
+  enc28j60_extint_conf.gpio_pin = ETHERNET_IRQ_PIN;
+  enc28j60_extint_conf.gpio_pin_mux = ETHERNET_IRQ_PINMUX;
   enc28j60_extint_conf.gpio_pin_pull = EXTINT_PULL_UP;
   enc28j60_extint_conf.detection_criteria = EXTINT_DETECT_FALLING;
 
@@ -85,8 +101,11 @@ enc28j60_arch_spi_init(void)
   spi_slave_inst_get_config_defaults(&slave_dev_config);
   slave_dev_config.ss_pin = ETHERNET_CS;
 
+  current_cs_pin_mode = CS_AS_SPI_OUPUT_PIN;
+
   /* Register the interrupt handler */
-  extint_register_callback(extint_handler, ENC28J60_IRQ_CHANNEL, EXTINT_CALLBACK_TYPE_DETECT);
+  extint_register_callback(extint_handler, ETHERNET_IRQ_CHANNEL,
+                           EXTINT_CALLBACK_TYPE_DETECT);
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
@@ -108,7 +127,7 @@ enc28j60_arch_spi_read(void)
 void
 enc28j60_arch_spi_select(void)
 {
-  configure_cs(true);
+  configure_cs_pin(CS_AS_SPI_OUPUT_PIN);
   spi_select_slave(&esd_spi_master_instance, &enc28j60_spi_slave, true);
 }
 /*---------------------------------------------------------------------------*/
@@ -116,6 +135,6 @@ void
 enc28j60_arch_spi_deselect(void)
 {
   spi_select_slave(&esd_spi_master_instance, &enc28j60_spi_slave, false);
-  configure_cs(false);
+  configure_cs_pin(CS_AS_EXTINT_INPUT_PIN);
 }
 /*---------------------------------------------------------------------------*/
