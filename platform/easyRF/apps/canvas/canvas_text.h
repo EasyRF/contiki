@@ -26,13 +26,22 @@
 
 #include "canvas.h"
 
-int canvas_text_init(const struct display_driver * display,
-                     const char * filename,
-                     display_pos_t startx, display_pos_t starty,
-                     display_pos_t width, display_pos_t height,
-                     display_color_t textcolor, display_color_t bgcolor);
+struct canvas_textbox {
+  struct canvas_rectangle rect;
+  display_pos_t cursor_x;
+  display_pos_t cursor_y;
+  display_color_t text_color;
+  display_color_t background_color;
+  display_color_t border_color;
+};
 
-int canvas_putc(char ch);
-int canvas_puts(const char * s);
+int canvas_text_load_font(const char * filename);
+
+display_pos_t canvas_font_height(int font_fd);
+
+int canvas_text_draw_string(const struct display_driver * display,
+                            struct canvas_textbox * textbox,
+                            const int font_fd,
+                            const char * s);
 
 #endif /* CANVAS_TEXT_H_ */

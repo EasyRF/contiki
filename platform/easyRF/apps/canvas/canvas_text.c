@@ -26,8 +26,8 @@
 #include "autofs.h"
 #include "canvas_text.h"
 
-#undef TRACE
-#define TRACE(...)
+//#undef TRACE
+//#define TRACE(...)
 
 
 /* Maximum height of character */
@@ -45,189 +45,259 @@
 /* Number of characters in bitmap file */
 #define FONT_MAX_CHARS        (FONT_LAST_CH - FONT_FIRST_CH + 1)
 
-/* maximum nr of px on a row */
-#define FONT_MAX_PX_PER_ROW   (FONT_MAX_WIDTH*FONT_MAX_CHARS)
+/* Maximum number of pixels in a row */
+#define FONT_MAX_PX_PER_ROW   (FONT_MAX_WIDTH * FONT_MAX_CHARS)
+
+/* Maximum number of fonts in use */
+#define FONT_FD_SET_SIZE      4
+#define FONT_FD_FREE          0x0
+#define FONT_FD_USED          0x1
 
 
-static int font_file_fd;
-static const struct display_driver * curr_display;
-static display_pos_t curr_startx, curr_starty, curr_width, curr_height;
-static display_pos_t curr_x, curr_y;
-static display_pos_t curr_fontsize;
-static display_color_t curr_color;
-static cfs_offset_t curr_font_dataoffset;
-static cfs_offset_t curr_bytes_per_row;
+struct font {
+  /* File descriptor of current font */
+  int font_file_fd;
 
-/* The x position of all chars */
-static display_pos_t charx[FONT_MAX_CHARS];
+  /* The offset in the file to the image data */
+  cfs_offset_t fontfile_data_offset;
 
-/* The width of the chars */
-static display_pos_t charw[FONT_MAX_CHARS];
+  /* Number of bytes per (horizontal) line in the image */
+  cfs_offset_t bytes_per_row;
 
-/* Flag indicating font status */
-static bool font_loaded;
+  /* Height of the font */
+  display_pos_t font_height;
+
+  /* The x position of all chars */
+  display_pos_t chars_x_position[FONT_MAX_CHARS];
+
+  /* The width of all the chars */
+  display_pos_t chars_width[FONT_MAX_CHARS];
+
+  /* FD state flags */
+  uint8_t flags;
+};
+
+
+static struct font font_fd_set[FONT_FD_SET_SIZE];
 
 /*---------------------------------------------------------------------------*/
 
 /* Macro's for calculating pixels left for x and y direction within textbox */
-#define PX_AVAILX()   ((curr_startx + curr_width ) - curr_x)
-#define PX_AVAILY()   ((curr_starty + curr_height) - curr_y)
+#define PX_AVAILX(tb)   ((tb->rect.left + tb->rect.width ) - tb->cursor_x)
+#define PX_AVAILY(tb)   ((tb->rect.top  + tb->rect.height) - tb->cursor_y)
 
 /*---------------------------------------------------------------------------*/
-static bool
-canvas_text_load(void)
+static int
+get_available_fd(void)
 {
-  struct BMP_HEADER hdr;
-  static uint8_t flattened_row[FONT_MAX_PX_PER_ROW/8];
-  uint8_t curr_ch = 0;
-  display_pos_t tmp_x = 0;
-  bool curr_px = 0, last_px = 0;
-  display_pos_t x, y;
-  uint8_t bitmask = 0, currbyte = 0;
-  char ch;
+  int i;
 
-  memset(charx, 0, sizeof(charx));
-  memset(charw, 0, sizeof(charw));
+  for (i = 0; i < FONT_FD_SET_SIZE; i++) {
+    if(font_fd_set[i].flags == FONT_FD_FREE) {
+      return i;
+    }
+  }
+  return -1;
+}
+/*---------------------------------------------------------------------------*/
+static bool
+load_font(struct font * fdp)
+{
+  struct bmp_header hdr;
+  display_pos_t x, y, tmp_x = 0;
+  uint8_t flattened_row[FONT_MAX_PX_PER_ROW / 8];
+  bool curr_pixel_value = 0, last_pixel_value = 0;
+  uint8_t curr_ch = 0, bitmask = 0, currbyte = 0;
+
+  /* Clear position and width arrays */
+  memset(fdp->chars_x_position, 0, sizeof(fdp->chars_x_position));
+  memset(fdp->chars_width, 0, sizeof(fdp->chars_width));
+
+  /* Clear temp row array */
+  memset(flattened_row, 0, sizeof(flattened_row));
 
   /* Read BMP header */
-  if (autofs_read(font_file_fd, (void *)&hdr,
-                  sizeof(struct BMP_HEADER)) != sizeof(struct BMP_HEADER)) {
+  if (autofs_read(fdp->font_file_fd, (void *)&hdr,
+                  sizeof(struct bmp_header)) != sizeof(struct bmp_header)) {
     WARN("Failed to read BMP header");
+    return false;
   }
 
   /* Log BMP info */
   INFO("BMP size %dx%d bits %d", hdr.width, hdr.height, hdr.bits);
 
-  if(hdr.width>FONT_MAX_PX_PER_ROW){
+  /* Check character width */
+  if (hdr.width > FONT_MAX_PX_PER_ROW) {
     WARN("Unable to load font, BPM to wide!");
     return false;
   }
+
   /* Check color depth */
   if (hdr.bits != 1) {
     WARN("Only monochrome bitmaps are currently supported");
     return false;
   }
 
-  /* Bytes in a row are aligned with 32 bits */
-  curr_bytes_per_row = (((uint32_t)hdr.bits * hdr.width + 31) / 32) << 2;
-  curr_fontsize = hdr.height;
+  /* Calculate bytes per row, in BMP's it is always a multiple of 4 bytes */
+  fdp->bytes_per_row = (((uint32_t)hdr.bits * hdr.width + 31) / 32) << 2;
 
-  TRACE("bytes_per_row: %d", curr_bytes_per_row);
+  /* Store font height */
+  fdp->font_height = hdr.height;
 
-  /* SET seek position to start of image data */
-  curr_font_dataoffset = hdr.offset;
-  TRACE("font data offset %d", curr_font_dataoffset);
+  /* Store offset to image data */
+  fdp->fontfile_data_offset = hdr.offset;
 
-  /* Move pointer in file to start of imagedata */
-  autofs_seek(font_file_fd, curr_font_dataoffset, CFS_SEEK_SET);
+  /* Move pointer in file to start of image data */
+  autofs_seek(fdp->font_file_fd, fdp->fontfile_data_offset, CFS_SEEK_SET);
 
-  /* Fill flattened_row */
-  memset(flattened_row,0,sizeof(flattened_row));
-  for(y=0;y<hdr.height;y++) {
-    for(x=0;x<curr_bytes_per_row;x++) {
-      autofs_read(font_file_fd, &ch, 1);
-      flattened_row[x] |= (uint8_t) ~ch; /* 0 means black px, 1 means white px, so invert bits */
+  /* OR pixel values of each column */
+  for (y = 0; y < hdr.height; y++) {
+    for (x = 0; x < fdp->bytes_per_row; x++) {
+      /* Read next byte */
+      autofs_read(fdp->font_file_fd, &currbyte, 1);
+      /* OR pixel for each x position. Black pixels are 0, so invert value */
+      flattened_row[x] |= ~currbyte;
     }
   }
 
-  /* Walk through flattened_row to fill charx (startposition of char) and charw (width of char) */
-  for(x = 0; x < hdr.width; x++) {
+  /* Walk through flattened_row to fill charx (startposition of char)
+   * and charw (width of char) */
+  for (x = 0; x < hdr.width; x++) {
 
-    /* Get new byte */
-    if ((x%8)==0) {
-      bitmask=0x80;
-      currbyte=flattened_row[x>>3];
+    /* New byte */
+    if ((x % 8) == 0) {
+      /* Init bitmask */
+      bitmask = 0x80;
+      /* Retrieve byte for x position */
+      currbyte = flattened_row[x >> 3];
     }
 
-    /* Add a white px to the end to avoid missing the last char */
-    curr_px = (currbyte & bitmask) == bitmask;
+    /* Make sure to add a white px to the end of each row
+     * to avoid missing the last character */
+    curr_pixel_value = (currbyte & bitmask) == bitmask;
 
-    if (last_px != curr_px) {
-      if (curr_px) { /* start of char */
+    /* Check for (flattened) pixel value change */
+    if (last_pixel_value != curr_pixel_value) {
+      /* Check for start of a character */
+      if (curr_pixel_value) {
+        /* Remember the x position */
         tmp_x = x;
-      } else {        /* end of char */
+      } else {
+        /* Check bound of position and width arrays */
         if (curr_ch < FONT_MAX_CHARS) {
-          charx[curr_ch] = tmp_x;
-          charw[curr_ch] = x - tmp_x;
-          TRACE("CHAR %c starts @  %d and is %d wide.",curr_ch + FONT_FIRST_CH, charx[curr_ch], charw[curr_ch]);
+          /* This is the end of a character */
+          /* Store x position, which is the start of the character */
+          fdp->chars_x_position[curr_ch] = tmp_x;
+          /* Calculate and store the width of the character */
+          fdp->chars_width[curr_ch] = x - tmp_x;
+          /* Log character info */
+          TRACE("CHAR %c starts @  %d and is %d wide.", curr_ch +
+                FONT_FIRST_CH, fdp->chars_x_position[curr_ch], fdp->chars_width[curr_ch]);
+          /* Increase array index */
           curr_ch++;
         } else {
           WARN("Not enough room for new character");
         }
       }
-      last_px = curr_px;
+      /* Save pixel value */
+      last_pixel_value = curr_pixel_value;
     }
+    /* Next bit */
     bitmask >>= 1;
   }
 
+  /* Log number of character processed */
   INFO("Read %d chars (max is %d)", curr_ch, FONT_MAX_CHARS);
 
+  /* Ok */
   return true;
 }
 /*---------------------------------------------------------------------------*/
 int
-canvas_text_init(const struct display_driver * display,
-                 const char * filename,
-                 display_pos_t startx, display_pos_t starty,
-                 display_pos_t width, display_pos_t height,
-                 display_color_t textcolor, display_color_t bgcolor)
+canvas_text_load_font(const char * filename)
 {
-  /* Remember settings in local variables */
-  curr_display = display;
-  curr_startx  = startx;
-  curr_starty  = starty;
-  curr_width   = width;
-  curr_height  = height;
-  curr_color   = textcolor;
-  curr_x       = curr_startx;
-  curr_y       = curr_starty;
+  struct font * fdp;
+  int fd;
 
-  /* Try opening fontfile */
-  font_file_fd = autofs_open(filename, CFS_READ);
-  if (font_file_fd < 0) {
+  fd = get_available_fd();
+  if(fd < 0) {
+    WARN("Failed to allocate a new font descriptor!");
+    return -1;
+  }
+
+  fdp = &font_fd_set[fd];
+
+  /* Try opening font file */
+  fdp->font_file_fd = autofs_open(filename, CFS_READ);
+  if (fdp->font_file_fd < 0) {
     WARN("Could not find %s", filename);
     return -1;
   }
 
-  /* Analyze font image */
-  font_loaded = canvas_text_load();
+  if (!load_font(fdp)) {
+    WARN("Error analyzing font %s", filename);
+    autofs_close(fdp->font_file_fd);
+    return -1;
+  }
 
-  /* Draw background */
-  canvas_fill(curr_display, startx, starty, width, height, bgcolor);
+  fdp->flags = FONT_FD_USED;
 
-  return font_loaded;
+  return fd;
 }
 /*---------------------------------------------------------------------------*/
 static void
-canvas_putch_to_position(char ch, display_pos_t displx, display_pos_t disply)
+canvas_putch_to_position(const struct display_driver * display,
+                         const struct font * fdp,
+                         struct canvas_textbox * textbox,
+                         const char c)
 {
-  display_pos_t filex, x, y;
+  display_pos_t char_file_offset, x, y;
   uint8_t currbyte, bitmask;
-  uint8_t width=charw[ch-FONT_FIRST_CH];
+  uint8_t char_width;
 
-  for(y = 0; y < curr_fontsize; y++) {
+  /* Get width of current character */
+  char_width = fdp->chars_width[c - FONT_FIRST_CH];
 
-    filex = charx[ch-FONT_FIRST_CH];
+  /* Loop over vertical pixels of character */
+  for (y = 0; y < fdp->font_height; y++) {
 
-    /* Step to right position in file (BMP is always upsidedown, so reversed order) */
-    int offset = curr_font_dataoffset + (long)curr_bytes_per_row*(curr_fontsize-1-y) + (filex>>3);
+    /* Get start of file offset of current character */
+    char_file_offset = fdp->chars_x_position[c - FONT_FIRST_CH];
 
-    autofs_seek(font_file_fd, offset, CFS_SEEK_SET);
-    autofs_read(font_file_fd, &currbyte, 1);
+    /* Calculate position in file
+     * (BMP is always upsidedown, so reversed order for y coordinate) */
+    int offset = fdp->fontfile_data_offset +
+        (long)fdp->bytes_per_row *
+        (fdp->font_height - 1 - y) + (char_file_offset >> 3);
 
-    bitmask = 0x80 >> (filex % 8);
-    for(x = 0; x < width; x++) {
+    /* Set file pointer to calculated offset */
+    autofs_seek(fdp->font_file_fd, offset, CFS_SEEK_SET);
 
+    /* Read one byte */
+    autofs_read(fdp->font_file_fd, &currbyte, 1);
+
+    /* Init bitmask */
+    bitmask = 0x80 >> (char_file_offset % 8);
+
+    /* Loop over horizontal pixels of character */
+    for(x = 0; x < char_width; x++) {
+
+      /* Check bit state, if set apply text_color for pixel */
       if ((currbyte & bitmask) != bitmask) {
-        curr_display->set_px(displx+x, disply+y, curr_color);
+        display->set_px(textbox->cursor_x + x, textbox->cursor_y + y,
+                        textbox->text_color);
       }
 
-      /* Next sourcepx */
-      filex++;
+      /* Next pixel */
       bitmask >>= 1;
 
-      if(!bitmask) {
-        autofs_read(font_file_fd, &currbyte, 1);
+      /* Check for all bits done */
+      if (bitmask == 0) {
+
+        /* Read next byte from file */
+        autofs_read(fdp->font_file_fd, &currbyte, 1);
+
+        /* Reset bitmask */
         bitmask = 0x80;
       }
     }
@@ -235,10 +305,13 @@ canvas_putch_to_position(char ch, display_pos_t displx, display_pos_t disply)
 }
 /*---------------------------------------------------------------------------*/
 static bool
-canvas_text_crlf(void)
+draw_crlf(const struct font * fdp,
+          struct canvas_textbox * textbox)
 {
+  TRACE("font heigth: %d, PX_AVAILY: %d", fdp->font_height, PX_AVAILY(textbox));
+
   /* any space left for enter? */
-  if ((curr_fontsize+1) > PX_AVAILY()) {
+  if ((fdp->font_height * 2 + 1) > PX_AVAILY(textbox)) {
     WARN("No more room in textbox");
     return false;
   }
@@ -246,59 +319,100 @@ canvas_text_crlf(void)
   TRACE("Setting cursor to start of new line");
 
   /* CR */
-  curr_x = curr_startx;
+  textbox->cursor_x = textbox->rect.left;
 
   /* LF */
-  curr_y += curr_fontsize + 1;
+  textbox->cursor_y += fdp->font_height + 1;
 
   return true;
 }
 /*---------------------------------------------------------------------------*/
-int
-canvas_putc(char ch)
+static int
+draw_character(const struct display_driver * display,
+               struct canvas_textbox * textbox,
+               const struct font * fdp, const char c)
 {
-  /* Do we have a font loaded? */
-  if(!font_loaded) {
-    WARN("No font loaded");
-    return -1;
-  }
-
   /* Printable? */
-  if ((ch>=FONT_FIRST_CH) && (ch<=FONT_LAST_CH) && charw[ch-FONT_FIRST_CH]>0) {
-    /* CR/LF needed? */
-    if ((charw[(uint8_t)ch-FONT_FIRST_CH]+1) > PX_AVAILX()) {
-      if(!canvas_text_crlf()) {
+  if ((c >= FONT_FIRST_CH) && (c <= FONT_LAST_CH) &&
+      fdp->chars_width[c - FONT_FIRST_CH] > 0) {
+    /* Check if CR/LF is needed */
+    if ((fdp->chars_width[(uint8_t)c - FONT_FIRST_CH] + 1) > PX_AVAILX(textbox)) {
+      if(!draw_crlf(fdp, textbox)) {
         return -1;
       }
     }
 
-    canvas_putch_to_position(ch, curr_x, curr_y);
-    curr_x += charw[ch-FONT_FIRST_CH]+1;
+    canvas_putch_to_position(display, fdp, textbox, c);
+    textbox->cursor_x += fdp->chars_width[c - FONT_FIRST_CH] + 1;
   } else {
     TRACE("Printing other char");
-    if (ch == ' ') {
+    if (c == ' ') {
       /* space = (height+2)/3 */
-      uint8_t spacewidth = (curr_fontsize + 2) / 3;
-      if(spacewidth > PX_AVAILX()){
-        if(!canvas_text_crlf())
+      uint8_t spacewidth = (fdp->font_height + 2) / 3;
+      if(spacewidth > PX_AVAILX(textbox)){
+        if(!draw_crlf(fdp, textbox))
           return -1;
       } else {
-        curr_x+=spacewidth;
+        textbox->cursor_x += spacewidth;
       }
-    } else if (ch == '\r' || ch == '\n') {
-      canvas_text_crlf();
+    } else if (c == '\r' || c == '\n') {
+      draw_crlf(fdp, textbox);
     }
   }
 
   return 1;
 }
 /*---------------------------------------------------------------------------*/
-int
-canvas_puts(const char * s)
+static inline void
+reset_cursor(struct canvas_textbox * textbox)
 {
-  int total = 0;
-  while (*s != 0 && canvas_putc(*s++) == 1) {
+  /* Set cursor position to top left corner of textbox */
+  textbox->cursor_x = textbox->rect.left + 2;
+  textbox->cursor_y = textbox->rect.top + 2;
+}
+/*---------------------------------------------------------------------------*/
+display_pos_t
+canvas_font_height(int font_fd)
+{
+  struct font * fdp;
+
+  if (font_fd < 0) {
+    WARN("Invalid font descriptor");
+    return -1;
+  }
+
+  fdp = &font_fd_set[font_fd];
+
+  return fdp->font_height;
+}
+/*---------------------------------------------------------------------------*/
+int
+canvas_text_draw_string(const struct display_driver * display,
+                        struct canvas_textbox * textbox,
+                        const int font_fd,
+                        const char * s)
+{
+  int total;
+  struct font * fdp;
+
+  if (font_fd < 0) {
+    WARN("Invalid font descriptor");
+    return -1;
+  }
+
+  fdp = &font_fd_set[font_fd];
+
+  /* Initialize cursor position */
+  reset_cursor(textbox);
+
+  /* Draw textbox */
+  canvas_draw_rect(display, &textbox->rect, textbox->border_color, textbox->background_color);
+
+  total = 0;
+  while (*s != 0 && draw_character(display, textbox, fdp, *s++) == 1) {
     total++;
   }
+
+  /* Return number of characters written */
   return total;
 }

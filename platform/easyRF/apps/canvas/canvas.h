@@ -26,7 +26,7 @@
 
 #include "display.h"
 
-struct BMP_HEADER {
+struct bmp_header {
   unsigned short int signature;                /* Signature                   */
   unsigned int file_size;                      /* File size in bytes          */
   unsigned short int reserved1, reserved2;     /* Reserved fields             */
@@ -43,31 +43,32 @@ struct BMP_HEADER {
 } __attribute__ ((packed));
 
 
-void canvas_vline       (const struct display_driver * display,
-                         display_pos_t startx, display_pos_t starty, display_pos_t len,
-                         uint8_t thickness, display_color_t color);
+struct canvas_point {
+  display_pos_t x;
+  display_pos_t y;
+};
 
-void canvas_hline       (const struct display_driver * display,
-                         display_pos_t startx, display_pos_t starty, display_pos_t len,
-                         uint8_t thickness, display_color_t color);
+struct canvas_rectangle {
+  display_pos_t left;
+  display_pos_t top;
+  display_pos_t width;
+  display_pos_t height;
+};
 
-void canvas_line        (const struct display_driver * display,
-                        display_pos_t x0, display_pos_t y0,
-                        display_pos_t x1, display_pos_t y1,
-                        display_color_t color);
+void canvas_draw_line   (const struct display_driver * display,
+                         const struct canvas_point * p1,
+                         const struct canvas_point * p2,
+                         const display_color_t line_color);
 
-void canvas_fill        (const struct display_driver * display,
-                         display_pos_t startx, display_pos_t starty,
-                         display_pos_t width, display_pos_t height,
-                         display_color_t color);
-
-void canvas_invert      (const struct display_driver * display,
-                         display_pos_t startx, display_pos_t starty,
-                         display_pos_t width, display_pos_t height);
+void canvas_draw_rect   (const struct display_driver * display,
+                         const struct canvas_rectangle * rect,
+                         const display_color_t line_color,
+                         const display_color_t fill_color);
 
 void canvas_bmp         (const struct display_driver * display,
                          const char * filename,
-                         display_pos_t offsetx, display_pos_t offsety,
-                         display_color_t fg_color, display_color_t bg_color);
+                         const struct canvas_point * point,
+                         const display_color_t fg_color,
+                         const display_color_t bg_color);
 
 #endif /* CANVAS_H_ */

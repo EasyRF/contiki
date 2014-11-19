@@ -27,43 +27,21 @@
 #include "canvas.h"
 #include "log.h"
 
-/*---------------------------------------------------------------------------*/
-void
-canvas_vline(const struct display_driver * display,
-             display_pos_t startx, display_pos_t starty,
-             display_pos_t len, uint8_t thickness,
-             display_color_t color)
-{
-  display_pos_t x, y;
 
-  for (y = 0; y < len; y++) {
-    for (x = 0; x < thickness; x++) {
-      display->set_px(startx + x, starty + y, color);
-    }
-  }
-}
 /*---------------------------------------------------------------------------*/
 void
-canvas_hline(const struct display_driver * display,
-             display_pos_t startx, display_pos_t starty,
-             display_pos_t len, uint8_t thickness,
-             display_color_t color)
+canvas_draw_line(const struct display_driver * display,
+                 const struct canvas_point * p1,
+                 const struct canvas_point * p2,
+                 const display_color_t color)
 {
-  display_pos_t x, y;
+  display_pos_t x, y, x2, y2;
 
-  for (x = 0; x < len; x++) {
-    for (y = 0; y < thickness; y++) {
-      display->set_px(startx + x, starty + y, color);
-    }
-  }
-}
-/*---------------------------------------------------------------------------*/
-void
-canvas_line(const struct display_driver * display,
-            display_pos_t x, display_pos_t y,
-            display_pos_t x2, display_pos_t y2,
-            display_color_t color)
-{
+  x = p1->x;
+  y = p1->y;
+  x2 = p2->x;
+  y2 = p2->y;
+
   int w = x2 - x;
   int h = y2 - y;
 
@@ -102,30 +80,21 @@ canvas_line(const struct display_driver * display,
 }
 /*---------------------------------------------------------------------------*/
 void
-canvas_fill(const struct display_driver * display,
-            display_pos_t startx, display_pos_t starty,
-            display_pos_t width, display_pos_t height,
-            display_color_t color)
+canvas_draw_rect(const struct display_driver * display,
+                 const struct canvas_rectangle * rect,
+                 const display_color_t line_color,
+                 const display_color_t fill_color)
 {
   display_pos_t x, y;
 
-  for (x = startx; x < (startx + width); x++) {
-    for (y = starty; y < (starty + height); y++) {
-      display->set_px(x, y, color);
-    }
-  }
-}
-/*---------------------------------------------------------------------------*/
-void
-canvas_invert(const struct display_driver * display,
-              display_pos_t startx, display_pos_t starty,
-              display_pos_t width, display_pos_t height)
-{
-  display_pos_t x, y;
-
-  for (x = startx; x < (startx + width); x++) {
-    for (y = starty; y < (starty + height); y++) {
-      display->invert_px(x, y);
+  for (x = rect->left; x < (rect->left + rect->width); x++) {
+    for (y = rect->top; y < (rect->top + rect->height); y++) {
+      if (x == rect->left || x == rect->left + rect->width  - 1 ||
+          y == rect->top  || y == rect->top  + rect->height - 1) {
+        display->set_px(x, y, line_color);
+      } else {
+        display->set_px(x, y, fill_color);
+      }
     }
   }
 }
@@ -133,11 +102,12 @@ canvas_invert(const struct display_driver * display,
 void
 canvas_bmp(const struct display_driver * display,
            const char * filename,
-           display_pos_t offsetx, display_pos_t offsety,
-           display_color_t fg_color, display_color_t bg_color)
+           const struct canvas_point * point,
+           const display_color_t fg_color,
+           const display_color_t bg_color)
 {
   int fd;
-  struct BMP_HEADER hdr;
+  struct bmp_header hdr;
   int bytes_per_row;
   display_pos_t x, y;
   uint8_t bitmask = 0, image_byte = 0;
@@ -148,7 +118,7 @@ canvas_bmp(const struct display_driver * display,
     return;
   }
 
-  if (autofs_read(fd, (void *)&hdr, sizeof(struct BMP_HEADER)) != sizeof(struct BMP_HEADER)) {
+  if (autofs_read(fd, (void *)&hdr, sizeof(struct bmp_header)) != sizeof(struct bmp_header)) {
     WARN("Failed to read BMP header");
   }
 
@@ -174,7 +144,7 @@ canvas_bmp(const struct display_driver * display,
         bitmask = 0x80;
         autofs_read(fd, &image_byte, 1);
       }
-      display->set_px(x+offsetx, hdr.height-(y+offsety)-1, ((image_byte & bitmask) != bitmask) ? fg_color : bg_color);
+      display->set_px(point->x + x, hdr.height - (point->y + y) - 1, ((image_byte & bitmask) != bitmask) ? fg_color : bg_color);
       bitmask >>= 1;
     }
 

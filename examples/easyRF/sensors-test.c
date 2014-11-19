@@ -28,12 +28,14 @@
 #include "http-socket.h"
 #include "log.h"
 #include "dev/leds.h"
+#include "dev/flash.h"
 #include "dev/sensor_qtouch_wheel.h"
 #include "dev/sensor_joystick.h"
 #include "dev/sensor_bmp180.h"
 #include "dev/sensor_si7020.h"
 #include "dev/sensor_tcs3772.h"
 #include "dev/display_st7565s.h"
+#include "apps/canvas/canvas_text.h"
 
 
 #define APPLICATION_JSON  "application/json"
@@ -46,7 +48,11 @@ AUTOSTART_PROCESSES(&sensors_test_process, &http_post_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(sensors_test_process, ev, data)
 {
-  static int cnt = 0;
+  static display_value_t width, height;
+  static char text_buffer[64];
+  static int verdane8_bold, verdane7;
+  static struct canvas_textbox tb_wheel_position, tb_color_red;
+
   struct sensors_sensor *sensor;
 
   PROCESS_BEGIN();
@@ -65,8 +71,38 @@ PROCESS_THREAD(sensors_test_process, ev, data)
 
   pressure_sensor.configure(BMP180_READ_INTERVAL, CLOCK_SECOND / 2);
 
-//  displ_drv_st7565s.on();
-//  displ_drv_st7565s.set_backlight(1);
+  display_st7565s.on();
+  display_st7565s.set_value(DISPLAY_BACKLIGHT, 1);
+  display_st7565s.set_value(DISPLAY_FLIP_X, 1);
+  display_st7565s.set_value(DISPLAY_FLIP_Y, 1);
+  display_st7565s.get_value(DISPLAY_WIDTH, &width);
+  display_st7565s.get_value(DISPLAY_HEIGHT, &height);
+
+  /* Open external flash */
+  EXTERNAL_FLASH.open();
+
+  struct canvas_point p; p.x = 0; p.y = 0;
+  canvas_bmp(&display_st7565s, "/logo_easyrf.bmp", &p,
+             DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE);
+
+  verdane8_bold = canvas_text_load_font("verdane8_bold_cfs.bmp");
+  verdane7 = canvas_text_load_font("/verdane7.bmp");
+
+  tb_wheel_position.rect.left = 5;
+  tb_wheel_position.rect.width = width / 2;
+  tb_wheel_position.rect.top  = height / 2;
+  tb_wheel_position.rect.height = 11;
+  tb_wheel_position.text_color = DISPLAY_COLOR_BLACK;
+  tb_wheel_position.background_color = DISPLAY_COLOR_WHITE;
+  tb_wheel_position.border_color = DISPLAY_COLOR_BLACK;
+
+  tb_color_red.rect.left = 5;
+  tb_color_red.rect.width = width / 2;
+  tb_color_red.rect.top  = tb_wheel_position.rect.top + tb_wheel_position.rect.height + 2;
+  tb_color_red.rect.height = 10;
+  tb_color_red.text_color = DISPLAY_COLOR_WHITE;
+  tb_color_red.background_color = DISPLAY_COLOR_BLACK;
+  tb_color_red.border_color = DISPLAY_COLOR_BLACK;
 
   while (1) {
     PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event);
@@ -77,6 +113,12 @@ PROCESS_THREAD(sensors_test_process, ev, data)
       INFO("state: %d, position = %d",
            touch_wheel_sensor.value(TOUCH_WHEEL_STATE),
            touch_wheel_sensor.value(TOUCH_WHEEL_POSITION));
+
+      snprintf(text_buffer, sizeof(text_buffer), "Wheel: %d",
+               touch_wheel_sensor.value(TOUCH_WHEEL_POSITION));
+
+      canvas_text_draw_string(&display_st7565s, &tb_wheel_position, verdane8_bold, text_buffer);
+
     } else if (sensor == &joystick_sensor) {
       INFO("joystick position: %d",
            joystick_sensor.value(0));
@@ -90,15 +132,15 @@ PROCESS_THREAD(sensors_test_process, ev, data)
            rgbc_sensor.value(TCS3772_GREEN),
            rgbc_sensor.value(TCS3772_BLUE),
            rgbc_sensor.value(TCS3772_CLEAR));
+
+      snprintf(text_buffer, sizeof(text_buffer), "Red: %d",
+               rgbc_sensor.value(TCS3772_RED));
+      canvas_text_draw_string(&display_st7565s, &tb_color_red, verdane7, text_buffer);
     } else if (sensor == &rh_sensor) {
       INFO("humidity: %d, temperature: %d",
            rh_sensor.value(SI7020_HUMIDITY),
            rh_sensor.value(SI7020_TEMPERATURE));
     }
-
-    /* Draw a pixel on the screen at each sensor change */
-    display_st7565s.set_px(cnt % 128, cnt / 128, 1);
-    cnt++;
   }
 
   PROCESS_END();

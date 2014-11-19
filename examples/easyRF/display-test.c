@@ -86,23 +86,40 @@ PROCESS_THREAD(display_process, ev, data)
   /* Open external flash */
   EXTERNAL_FLASH.open();
 
-#if 1
+#if 0
   copy_file_from_romfs_to_cfs("/verdane8_bold.bmp", "verdane8_bold_cfs.bmp");
 #endif
 
-  canvas_line(&display_st7565s, 0, 0, width, height, 1);
-  canvas_line(&display_st7565s, width, 0, 0, height, 1);
+  struct canvas_point topleft, bottomright;
+  topleft.x = 0; topleft.y = 0;
+  bottomright.x = width; bottomright.y = height;
 
-  canvas_bmp(&display_st7565s, "/logo_easyrf.bmp", 0, 0,
+  struct canvas_point topright, bottomleft;
+  topright.x = width; topright.y = 0;
+  bottomleft.x = 0; bottomleft.y = height;
+
+  canvas_draw_line(&display_st7565s, &topleft, &bottomright, DISPLAY_COLOR_BLACK);
+  canvas_draw_line(&display_st7565s, &topright, &bottomleft, DISPLAY_COLOR_BLACK);
+
+  canvas_bmp(&display_st7565s, "/logo_easyrf.bmp", &topleft,
              DISPLAY_COLOR_BLACK, DISPLAY_COLOR_TRANSPARENT);
 
-  canvas_hline(&display_st7565s, 0, height / 2, width, 3, DISPLAY_COLOR_BLACK);
+  struct canvas_rectangle rect;
+  rect.left = 0; rect.width = width; rect.top = height / 2 - 2; rect.height = 3;
+  canvas_draw_rect(&display_st7565s, &rect, DISPLAY_COLOR_BLACK, DISPLAY_COLOR_BLACK);
 
-  canvas_text_init(&display_st7565s,"verdane8_bold_cfs.bmp",
-                   width / 2, height - 20, width / 2, 20,
-                   DISPLAY_COLOR_BLACK, DISPLAY_COLOR_TRANSPARENT);
+  int verdane8_bold = canvas_text_load_font("verdane8_bold_cfs.bmp");
 
-  canvas_puts("Hello World!");
+  struct canvas_textbox textbox;
+  textbox.rect.left = width / 2;
+  textbox.rect.width = width / 2;
+  textbox.rect.top = height - 20;
+  textbox.rect.height = canvas_font_height(verdane8_bold) + 4;
+  textbox.text_color = DISPLAY_COLOR_BLACK;
+  textbox.background_color = DISPLAY_COLOR_TRANSPARENT;
+  textbox.border_color = DISPLAY_COLOR_BLACK;
+
+  canvas_text_draw_string(&display_st7565s, &textbox, verdane8_bold, "[Hello World!]");
 
   PROCESS_END();
 }

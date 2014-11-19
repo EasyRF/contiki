@@ -82,7 +82,6 @@ autofs_open(const char *name, int flags)
   }
 
   fdp = &autofs_fd_set[fd];
-  fdp->flags = 0;
 
   /* First try romfs */
   innerfd = romfs_open(name, flags);
