@@ -83,7 +83,7 @@ PROCESS_THREAD(sensors_test_process, ev, data)
 
   struct canvas_point p;
   p.x = 0; p.y = 0;
-  canvas_bmp(&display_st7565s, "/logo_easyrf.bmp", &p,
+  canvas_draw_bmp(&display_st7565s, "/logo_easyrf.bmp", &p,
              DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE);
 
   verdane8_bold = canvas_load_font("verdane8_bold_cfs.bmp");

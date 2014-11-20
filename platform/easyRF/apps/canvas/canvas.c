@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include "compiler.h"
 #include "autofs.h"
+#include "bmp_header.h"
 #include "canvas.h"
 #include "log.h"
 
@@ -100,11 +101,11 @@ canvas_draw_rect(const struct display_driver * display,
 }
 /*---------------------------------------------------------------------------*/
 void
-canvas_bmp(const struct display_driver * display,
-           const char * filename,
-           const struct canvas_point * point,
-           const display_color_t fg_color,
-           const display_color_t bg_color)
+canvas_draw_bmp(const struct display_driver * display,
+                const char * filename,
+                const struct canvas_point * point,
+                const display_color_t fg_color,
+                const display_color_t bg_color)
 {
   int fd;
   struct bmp_header hdr;
@@ -120,6 +121,12 @@ canvas_bmp(const struct display_driver * display,
 
   if (autofs_read(fd, (void *)&hdr, sizeof(struct bmp_header)) != sizeof(struct bmp_header)) {
     WARN("Failed to read BMP header");
+  }
+
+  /* Check BMP signature */
+  if (hdr.signature != BMP_SIGNATURE) {
+    WARN("Invalid BMP signature");
+    goto end;
   }
 
   /* Log BMP info */

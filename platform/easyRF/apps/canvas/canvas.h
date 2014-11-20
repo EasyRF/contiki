@@ -26,23 +26,6 @@
 
 #include "display.h"
 
-struct bmp_header {
-  unsigned short int signature;                /* Signature                   */
-  unsigned int file_size;                      /* File size in bytes          */
-  unsigned short int reserved1, reserved2;     /* Reserved fields             */
-  unsigned int offset;                         /* Offset to image data, bytes */
-  unsigned int size;                           /* Header size in bytes        */
-  int width,height;                            /* Width and height of image   */
-  unsigned short int planes;                   /* Number of colour planes     */
-  unsigned short int bits;                     /* Bits per pixel              */
-  unsigned int compression;                    /* Compression type            */
-  unsigned int imagesize;                      /* Image size in bytes         */
-  int xresolution,yresolution;                 /* Pixels per meter            */
-  unsigned int ncolours;                       /* Number of colours           */
-  unsigned int importantcolours;               /* Important colours           */
-} __attribute__ ((packed));
-
-
 struct canvas_point {
   display_pos_t x;
   display_pos_t y;
@@ -65,7 +48,7 @@ void canvas_draw_rect   (const struct display_driver * display,
                          const display_color_t line_color,
                          const display_color_t fill_color);
 
-void canvas_bmp         (const struct display_driver * display,
+void canvas_draw_bmp    (const struct display_driver * display,
                          const char * filename,
                          const struct canvas_point * point,
                          const display_color_t fg_color,

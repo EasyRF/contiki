@@ -101,7 +101,7 @@ PROCESS_THREAD(display_process, ev, data)
   canvas_draw_line(&display_st7565s, &topleft, &bottomright, DISPLAY_COLOR_BLACK);
   canvas_draw_line(&display_st7565s, &topright, &bottomleft, DISPLAY_COLOR_BLACK);
 
-  canvas_bmp(&display_st7565s, "/logo_easyrf.bmp", &topleft,
+  canvas_draw_bmp(&display_st7565s, "/logo_easyrf.bmp", &topleft,
              DISPLAY_COLOR_BLACK, DISPLAY_COLOR_TRANSPARENT);
 
   struct canvas_rectangle rect;

@@ -23,6 +23,7 @@
 
 #include "compiler.h"
 #include "autofs.h"
+#include "bmp_header.h"
 #include "canvas_textbox.h"
 #include "log.h"
 
@@ -125,6 +126,12 @@ load_font(struct font * fdp)
   if (autofs_read(fdp->font_file_fd, (void *)&hdr,
                   sizeof(struct bmp_header)) != sizeof(struct bmp_header)) {
     WARN("Failed to read BMP header");
+    return false;
+  }
+
+  /* Check BMP signature */
+  if (hdr.signature != BMP_SIGNATURE) {
+    WARN("Invalid BMP signature");
     return false;
   }
 
