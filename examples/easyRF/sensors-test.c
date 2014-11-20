@@ -89,10 +89,10 @@ PROCESS_THREAD(sensors_test_process, ev, data)
   verdane8_bold = canvas_load_font("verdane8_bold_cfs.bmp");
   verdane7 = canvas_load_font("/verdane7.bmp");
 
-  canvas_text_init(&tb_wheel_position, 5, width / 2, height / 2, 11,
+  canvas_textbox_init(&tb_wheel_position, 5, width / 2, height / 2, 11,
                    DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE, DISPLAY_COLOR_BLACK);
 
-  canvas_text_init(&tb_color_red, 5, width / 2, tb_wheel_position.rect.top + tb_wheel_position.rect.height + 2, 10,
+  canvas_textbox_init(&tb_color_red, 5, width / 2, tb_wheel_position.rect.top + tb_wheel_position.rect.height + 2, 10,
                    DISPLAY_COLOR_WHITE, DISPLAY_COLOR_BLACK, DISPLAY_COLOR_BLACK);
 
   while (1) {

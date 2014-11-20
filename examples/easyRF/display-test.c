@@ -111,7 +111,7 @@ PROCESS_THREAD(display_process, ev, data)
   int verdane8_bold = canvas_load_font("verdane8_bold_cfs.bmp");
 
   struct canvas_textbox textbox;
-  canvas_text_init(&textbox, width / 2, width / 2, height - 20, canvas_font_height(verdane8_bold) + 4,
+  canvas_textbox_init(&textbox, width / 2, width / 2, height - 20, canvas_font_height(verdane8_bold) + 4,
                    DISPLAY_COLOR_BLACK, DISPLAY_COLOR_TRANSPARENT, DISPLAY_COLOR_BLACK);
 
   canvas_textbox_draw_string_reset(&display_st7565s, &textbox, verdane8_bold, "[Hello World!]");

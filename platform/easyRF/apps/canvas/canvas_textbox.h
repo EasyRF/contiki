@@ -35,15 +35,15 @@ struct canvas_textbox {
   display_color_t border_color;
 };
 
-
-static inline void canvas_text_init(struct canvas_textbox * textbox,
-                                    const display_pos_t left,
-                                    const display_pos_t width,
-                                    const display_pos_t top,
-                                    const display_pos_t height,
-                                    const display_color_t text_color,
-                                    const display_color_t background_color,
-                                    const display_color_t border_color)
+/* Convenience function for initializing textbox fields */
+static inline void canvas_textbox_init(struct canvas_textbox * textbox,
+                                       const display_pos_t left,
+                                       const display_pos_t width,
+                                       const display_pos_t top,
+                                       const display_pos_t height,
+                                       const display_color_t text_color,
+                                       const display_color_t background_color,
+                                       const display_color_t border_color)
 {
   textbox->rect.left = left;
   textbox->rect.width = width;
@@ -56,17 +56,24 @@ static inline void canvas_text_init(struct canvas_textbox * textbox,
   textbox->cursor_y = 0;
 }
 
+/* Load the font with the given filename */
 int canvas_load_font(const char * filename);
 
+/* Unload the font */
 void canvas_unload_font(int font_fd);
 
+/* Get the maximum character height of the font */
 display_pos_t canvas_font_height(int font_fd);
 
+/* Draw a string in the textbox, without cursor reset.
+ * It will behave as a string append funtion */
 int canvas_textbox_draw_string(const struct display_driver * display,
                                struct canvas_textbox * textbox,
                                const int font_fd,
                                const char * s);
 
+/* Draw a string in the textbox, with a cursor reset
+ * It will overwrite the existing text */
 int canvas_textbox_draw_string_reset(const struct display_driver * display,
                                      struct canvas_textbox * textbox,
                                      const int font_fd,
