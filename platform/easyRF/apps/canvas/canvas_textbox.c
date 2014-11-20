@@ -22,12 +22,12 @@
  */
 
 #include "compiler.h"
-#include "log.h"
 #include "autofs.h"
-#include "canvas_text.h"
+#include "canvas_textbox.h"
+#include "log.h"
 
-//#undef TRACE
-//#define TRACE(...)
+#undef TRACE
+#define TRACE(...)
 
 
 /* Maximum height of character */
@@ -52,6 +52,11 @@
 #define FONT_FD_SET_SIZE      4
 #define FONT_FD_FREE          0x0
 #define FONT_FD_USED          0x1
+
+/* File descriptor macros. */
+#define FD_VALID(fd)					\
+  ((fd) >= 0 && (fd) < FONT_FD_SET_SIZE && 	\
+  font_fd_set[(fd)].flags != FONT_FD_FREE)
 
 
 struct font {
@@ -214,7 +219,7 @@ load_font(struct font * fdp)
 }
 /*---------------------------------------------------------------------------*/
 int
-canvas_text_load_font(const char * filename)
+canvas_load_font(const char * filename)
 {
   struct font * fdp;
   int fd;
@@ -243,6 +248,20 @@ canvas_text_load_font(const char * filename)
   fdp->flags = FONT_FD_USED;
 
   return fd;
+}
+/*---------------------------------------------------------------------------*/
+void
+canvas_unload_font(int font_fd)
+{
+  struct font * fdp;
+
+  if (FD_VALID(font_fd)) {
+    fdp = &font_fd_set[font_fd];
+
+    autofs_close(fdp->font_file_fd);
+
+    font_fd_set[font_fd].flags = FONT_FD_FREE;
+  }
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -376,7 +395,7 @@ canvas_font_height(int font_fd)
 {
   struct font * fdp;
 
-  if (font_fd < 0) {
+  if (!FD_VALID(font_fd)) {
     WARN("Invalid font descriptor");
     return -1;
   }
@@ -387,23 +406,21 @@ canvas_font_height(int font_fd)
 }
 /*---------------------------------------------------------------------------*/
 int
-canvas_text_draw_string(const struct display_driver * display,
-                        struct canvas_textbox * textbox,
-                        const int font_fd,
-                        const char * s)
+canvas_textbox_draw_string(const struct display_driver * display,
+            struct canvas_textbox * textbox,
+            const int font_fd,
+            const char * s)
 {
   int total;
   struct font * fdp;
 
-  if (font_fd < 0) {
+  if (!FD_VALID(font_fd)) {
     WARN("Invalid font descriptor");
     return -1;
   }
 
+  /* Get a pointer to the font */
   fdp = &font_fd_set[font_fd];
-
-  /* Initialize cursor position */
-  reset_cursor(textbox);
 
   /* Draw textbox */
   canvas_draw_rect(display, &textbox->rect, textbox->border_color, textbox->background_color);
@@ -415,4 +432,17 @@ canvas_text_draw_string(const struct display_driver * display,
 
   /* Return number of characters written */
   return total;
+}
+/*---------------------------------------------------------------------------*/
+int
+canvas_textbox_draw_string_reset(const struct display_driver * display,
+                                 struct canvas_textbox * textbox,
+                                 const int font_fd,
+                                 const char * s)
+{
+  /* Initialize cursor position */
+  reset_cursor(textbox);
+
+  /* Draw the string */
+  return canvas_textbox_draw_string(display, textbox, font_fd, s);
 }

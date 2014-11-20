@@ -35,13 +35,41 @@ struct canvas_textbox {
   display_color_t border_color;
 };
 
-int canvas_text_load_font(const char * filename);
+
+static inline void canvas_text_init(struct canvas_textbox * textbox,
+                                    const display_pos_t left,
+                                    const display_pos_t width,
+                                    const display_pos_t top,
+                                    const display_pos_t height,
+                                    const display_color_t text_color,
+                                    const display_color_t background_color,
+                                    const display_color_t border_color)
+{
+  textbox->rect.left = left;
+  textbox->rect.width = width;
+  textbox->rect.top = top;
+  textbox->rect.height = height;
+  textbox->text_color = text_color;
+  textbox->background_color = background_color;
+  textbox->border_color = border_color;
+  textbox->cursor_x = 0;
+  textbox->cursor_y = 0;
+}
+
+int canvas_load_font(const char * filename);
+
+void canvas_unload_font(int font_fd);
 
 display_pos_t canvas_font_height(int font_fd);
 
-int canvas_text_draw_string(const struct display_driver * display,
-                            struct canvas_textbox * textbox,
-                            const int font_fd,
-                            const char * s);
+int canvas_textbox_draw_string(const struct display_driver * display,
+                               struct canvas_textbox * textbox,
+                               const int font_fd,
+                               const char * s);
+
+int canvas_textbox_draw_string_reset(const struct display_driver * display,
+                                     struct canvas_textbox * textbox,
+                                     const int font_fd,
+                                     const char * s);
 
 #endif /* CANVAS_TEXT_H_ */

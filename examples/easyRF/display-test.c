@@ -28,7 +28,7 @@
 #include "cfs-coffee.h"
 #include "romfs.h"
 #include "canvas.h"
-#include "canvas_text.h"
+#include "canvas_textbox.h"
 #include "log.h"
 
 
@@ -108,18 +108,13 @@ PROCESS_THREAD(display_process, ev, data)
   rect.left = 0; rect.width = width; rect.top = height / 2 - 2; rect.height = 3;
   canvas_draw_rect(&display_st7565s, &rect, DISPLAY_COLOR_BLACK, DISPLAY_COLOR_BLACK);
 
-  int verdane8_bold = canvas_text_load_font("verdane8_bold_cfs.bmp");
+  int verdane8_bold = canvas_load_font("verdane8_bold_cfs.bmp");
 
   struct canvas_textbox textbox;
-  textbox.rect.left = width / 2;
-  textbox.rect.width = width / 2;
-  textbox.rect.top = height - 20;
-  textbox.rect.height = canvas_font_height(verdane8_bold) + 4;
-  textbox.text_color = DISPLAY_COLOR_BLACK;
-  textbox.background_color = DISPLAY_COLOR_TRANSPARENT;
-  textbox.border_color = DISPLAY_COLOR_BLACK;
+  canvas_text_init(&textbox, width / 2, width / 2, height - 20, canvas_font_height(verdane8_bold) + 4,
+                   DISPLAY_COLOR_BLACK, DISPLAY_COLOR_TRANSPARENT, DISPLAY_COLOR_BLACK);
 
-  canvas_text_draw_string(&display_st7565s, &textbox, verdane8_bold, "[Hello World!]");
+  canvas_textbox_draw_string_reset(&display_st7565s, &textbox, verdane8_bold, "[Hello World!]");
 
   PROCESS_END();
 }

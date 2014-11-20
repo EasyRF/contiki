@@ -35,7 +35,7 @@
 #include "dev/sensor_si7020.h"
 #include "dev/sensor_tcs3772.h"
 #include "dev/display_st7565s.h"
-#include "apps/canvas/canvas_text.h"
+#include "canvas_textbox.h"
 
 
 #define APPLICATION_JSON  "application/json"
@@ -81,28 +81,19 @@ PROCESS_THREAD(sensors_test_process, ev, data)
   /* Open external flash */
   EXTERNAL_FLASH.open();
 
-  struct canvas_point p; p.x = 0; p.y = 0;
+  struct canvas_point p;
+  p.x = 0; p.y = 0;
   canvas_bmp(&display_st7565s, "/logo_easyrf.bmp", &p,
              DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE);
 
-  verdane8_bold = canvas_text_load_font("verdane8_bold_cfs.bmp");
-  verdane7 = canvas_text_load_font("/verdane7.bmp");
+  verdane8_bold = canvas_load_font("verdane8_bold_cfs.bmp");
+  verdane7 = canvas_load_font("/verdane7.bmp");
 
-  tb_wheel_position.rect.left = 5;
-  tb_wheel_position.rect.width = width / 2;
-  tb_wheel_position.rect.top  = height / 2;
-  tb_wheel_position.rect.height = 11;
-  tb_wheel_position.text_color = DISPLAY_COLOR_BLACK;
-  tb_wheel_position.background_color = DISPLAY_COLOR_WHITE;
-  tb_wheel_position.border_color = DISPLAY_COLOR_BLACK;
+  canvas_text_init(&tb_wheel_position, 5, width / 2, height / 2, 11,
+                   DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE, DISPLAY_COLOR_BLACK);
 
-  tb_color_red.rect.left = 5;
-  tb_color_red.rect.width = width / 2;
-  tb_color_red.rect.top  = tb_wheel_position.rect.top + tb_wheel_position.rect.height + 2;
-  tb_color_red.rect.height = 10;
-  tb_color_red.text_color = DISPLAY_COLOR_WHITE;
-  tb_color_red.background_color = DISPLAY_COLOR_BLACK;
-  tb_color_red.border_color = DISPLAY_COLOR_BLACK;
+  canvas_text_init(&tb_color_red, 5, width / 2, tb_wheel_position.rect.top + tb_wheel_position.rect.height + 2, 10,
+                   DISPLAY_COLOR_WHITE, DISPLAY_COLOR_BLACK, DISPLAY_COLOR_BLACK);
 
   while (1) {
     PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event);
@@ -117,7 +108,7 @@ PROCESS_THREAD(sensors_test_process, ev, data)
       snprintf(text_buffer, sizeof(text_buffer), "Wheel: %d",
                touch_wheel_sensor.value(TOUCH_WHEEL_POSITION));
 
-      canvas_text_draw_string(&display_st7565s, &tb_wheel_position, verdane8_bold, text_buffer);
+      canvas_textbox_draw_string_reset(&display_st7565s, &tb_wheel_position, verdane8_bold, text_buffer);
 
     } else if (sensor == &joystick_sensor) {
       INFO("joystick position: %d",
@@ -135,7 +126,7 @@ PROCESS_THREAD(sensors_test_process, ev, data)
 
       snprintf(text_buffer, sizeof(text_buffer), "Red: %d",
                rgbc_sensor.value(TCS3772_RED));
-      canvas_text_draw_string(&display_st7565s, &tb_color_red, verdane7, text_buffer);
+      canvas_textbox_draw_string_reset(&display_st7565s, &tb_color_red, verdane7, text_buffer);
     } else if (sensor == &rh_sensor) {
       INFO("humidity: %d, temperature: %d",
            rh_sensor.value(SI7020_HUMIDITY),

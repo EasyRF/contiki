@@ -14,7 +14,7 @@ MODULES += core/net/ip64-addr
 
 # Add canvas app
 CONTIKI_TARGET_DIRS += apps/canvas apps/romfs apps/autofs
-CONTIKI_TARGET_SOURCEFILES += canvas.c canvas_text.c files.c romfs.c autofs.c
+CONTIKI_TARGET_SOURCEFILES += canvas.c canvas_textbox.c files.c romfs.c autofs.c
 
 # Add platform specific definition for ASF
 CFLAGS += -DBOARD=USER_BOARD
