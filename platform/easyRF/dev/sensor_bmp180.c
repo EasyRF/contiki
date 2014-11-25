@@ -1,3 +1,26 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2014 EasyRF
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 #include <asf.h>
 #include "contiki.h"
 #include "i2c_master_interface.h"
@@ -25,7 +48,7 @@
 #define MEAS_OSS_STD    1 /* Standard (2 samples, 7.5ms) */
 #define MEAS_OSS_HR     2 /* High Resolution (4 samples, 13.5ms) */
 #define MEAS_OSS_UHR    3 /* Ultra High Resolution (8 samples, 25.5ms) */
-#define WAIT_TIME_PRESSURE(oss)  ((oss + 1) * 2 * 3000 + 1500)
+#define WAIT_TIME_PRESSURE(oss)  ((oss + 1UL) * 2 * 3000UL + 1500UL)
 
 /* 0xE0 - Soft reset register */
 #define REG_SOFT_RST    0xE0  /* Write 0xB6 for POR sequence */
@@ -45,6 +68,13 @@
 /* 0xAA - Start of calibration register map */
 #define REG_CALIB       0xAA
 
+/* I2C address of the BMP180 sensor */
+#define SLAVE_ADDRESS   0x77
+
+/* Update interval */
+#define BMP180_DEFAULT_READ_INTERVAL    (CLOCK_SECOND * 2)
+
+
 /* Register map of calibration values */
 struct calibration_regs {
   int16_t ac1;
@@ -58,14 +88,7 @@ struct calibration_regs {
   int16_t mb;
   int16_t mc;
   int16_t md;
-};
-
-
-/* I2C address of the BMP180 sensor */
-#define SLAVE_ADDRESS           0x77
-
-/* Update interval */
-#define BMP180_DEFAULT_READ_INTERVAL    (CLOCK_SECOND * 2)
+} __attribute__ ((packed));
 
 
 static bool sensor_active;
@@ -127,7 +150,7 @@ bmp180_init(void)
 static bool
 read_uncompensated_temperature(uint16_t * temp)
 {
-  uint8_t read_cmd, write_cmd[2], msb, lsb;
+  uint8_t read_cmd, write_cmd[2];//, msb, lsb;
 
   /* Setup measurement control register for reading temperature */
   write_cmd[0] = REG_MEAS_CTRL;
@@ -141,16 +164,11 @@ read_uncompensated_temperature(uint16_t * temp)
 
   /* Read raw temperature from ADC output register */
   read_cmd = REG_OUT_MSB;
-  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &msb, sizeof(msb))) {
-    return false;
-  }
-  read_cmd = REG_OUT_LSB;
-  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &lsb, sizeof(lsb))) {
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), (uint8_t *)temp, 2)) {
     return false;
   }
 
-  /* Convert bytes to 16-bit value */
-  *temp = (((uint16_t)msb << 8) | lsb);
+  *temp = BE16_TO_CPU(*temp);
 
   /* Ok */
   return true;
@@ -159,7 +177,7 @@ read_uncompensated_temperature(uint16_t * temp)
 static bool
 read_uncompenstated_pressure(uint32_t * pressure, uint8_t oss)
 {
-  uint8_t read_cmd, write_cmd[2], msb, lsb, xlsb;
+  uint8_t read_cmd, write_cmd[2];
 
   /* Setup meaurement control register for reading pressure */
   write_cmd[0] = REG_MEAS_CTRL;
@@ -171,22 +189,17 @@ read_uncompenstated_pressure(uint32_t * pressure, uint8_t oss)
   /* Wait for pressure conversion, depending on number of samples */
   clock_delay_usec(WAIT_TIME_PRESSURE(oss));
 
-  /* Read raw pressure from ADC output register */
+  /* Clear variable, since only 24 bits will be written */
+  *pressure = 0;
+
+  /* Read raw temperature from ADC output register */
   read_cmd = REG_OUT_MSB;
-  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &msb, sizeof(msb))) {
-    return false;
-  }
-  read_cmd = REG_OUT_LSB;
-  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &lsb, sizeof(lsb))) {
-    return false;
-  }
-  read_cmd = REG_OUT_XLSB;
-  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), &xlsb, sizeof(xlsb))) {
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &read_cmd, sizeof(read_cmd), ((uint8_t *)pressure) + 1, 3)) {
     return false;
   }
 
-  /* Convert bytes to 24-bit value */
-  *pressure = (((uint32_t)msb << 16) | ((uint32_t)lsb << 8) | xlsb);
+  /* Convert endianess from Big Endian to CPU Endian */
+  *pressure = BE32_TO_CPU(*pressure);
 
   /* Correct value based on oversampling ratio */
   *pressure >>= (8 - oss);
@@ -238,10 +251,11 @@ update_values(void)
   x3 = ((x1 + x2) + 2) >> 2;
   b4 = (calibration_values.ac4 * (unsigned long)(x3 + 32768)) >> 15;
   b7 = ((unsigned long)up - b3) * (50000 >> oss);
-  if (b7 < 0x80000000)
+  if (b7 < 0x80000000) {
     p = (b7 * 2) / b4;
-  else
+  } else {
     p = (b7 / b4) * 2;
+  }
 
   x1 = (p >> 8) * (p >> 8);
   x1 = (x1 * 3038) >> 16;

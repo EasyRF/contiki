@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 #ifndef USER_BOARD_H
 #define USER_BOARD_H
 
@@ -84,9 +85,9 @@ void system_board_init(void);
 #define ESD_SPI_SERCOM_PINMUX_PAD3    PINMUX_PA19D_SERCOM3_PAD3
 
 #define ETHERNET_CS                   PIN_PA23
-#define ETHERNET_EIC_PIN              PIN_PA23A_EIC_EXTINT7
-#define ETHERNET_EIC_MUX              MUX_PA23A_EIC_EXTINT7
-#define ETHERNET_EIC_LINE             7
+#define ETHERNET_IRQ_PIN              PIN_PA23
+#define ETHERNET_IRQ_PINMUX           PINMUX_PA23A_EIC_EXTINT7
+#define ETHERNET_IRQ_CHANNEL          7
 
 #define SERIAL_FLASH_CS               PIN_PA27
 #define DISPLAY_CS                    PIN_PA28

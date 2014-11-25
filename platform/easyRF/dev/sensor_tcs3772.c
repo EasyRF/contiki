@@ -1,3 +1,26 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2014 EasyRF
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 #include <asf.h>
 #include "contiki.h"
 #include "i2c_master_interface.h"
@@ -74,14 +97,13 @@
 
 
 struct status_regs {
-  uint8_t   device_id;
   uint8_t   status;
   uint16_t  cdata;
   uint16_t  rdata;
   uint16_t  gdata;
   uint16_t  bdata;
   uint16_t  pdata;
-};
+} __attribute__ ((packed));
 
 
 static bool sensor_active;
@@ -97,13 +119,14 @@ update_values(void)
   struct status_regs new_sensor_data;
   uint8_t cmd;
 
-  cmd = REG_DEVICE_ID | COMMAND_AUTO_INC | COMMAND_BIT;
-  if (!i2c_master_read_reg(SLAVE_ADDRESS, &cmd, sizeof(cmd), (uint8_t *)&new_sensor_data, sizeof(new_sensor_data))) {
+  cmd = REG_STATUS | COMMAND_AUTO_INC | COMMAND_BIT;
+  if (!i2c_master_read_reg(SLAVE_ADDRESS, &cmd, sizeof(cmd),
+                           (uint8_t *)&new_sensor_data, sizeof(new_sensor_data))) {
     return false;
   }
 
-  TRACE("device id: 0x%02X, status: 0x%02X, cdata: 0x%04X, rdata: 0x%04X, gdata: 0x%04X, bdata: 0x%04X, pdata: 0x%04X\n",
-         new_sensor_data.device_id, new_sensor_data.status, new_sensor_data.cdata, new_sensor_data.rdata, new_sensor_data.gdata, new_sensor_data.bdata, new_sensor_data.pdata);
+  TRACE("status: 0x%02X, cdata: 0x%04X, rdata: 0x%04X, gdata: 0x%04X, bdata: 0x%04X, pdata: 0x%04X\n",
+         new_sensor_data.status, new_sensor_data.cdata, new_sensor_data.rdata, new_sensor_data.gdata, new_sensor_data.bdata, new_sensor_data.pdata);
 
   if (memcmp(&sensor_data, &new_sensor_data, sizeof(sensor_data)) != 0) {
     memcpy(&sensor_data, &new_sensor_data, sizeof(sensor_data));
@@ -163,16 +186,11 @@ deactivate_sensor(void)
 static int
 value(int type)
 {
-  uint16_t rgb_max = max(sensor_data.rdata, max(sensor_data.gdata, sensor_data.bdata));
-
   switch(type) {
   case TCS3772_RED: return sensor_data.rdata;
   case TCS3772_GREEN: return sensor_data.gdata;
   case TCS3772_BLUE: return sensor_data.bdata;
   case TCS3772_CLEAR: return sensor_data.cdata;
-  case TCS3772_RED_BYTE: return ((uint32_t)sensor_data.rdata * 255 / rgb_max);
-  case TCS3772_GREEN_BYTE: return ((uint32_t)sensor_data.gdata * 255 / rgb_max);
-  case TCS3772_BLUE_BYTE: return ((uint32_t)sensor_data.bdata * 255 / rgb_max);
   default:
     WARN("Invalid property");
     return 0;
