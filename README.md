@@ -22,7 +22,7 @@ For the ERF1000 evalution kit the cpu files can be found in
 
 To get your board up and running as quickly as possible follow the steps below.
 
-You can find the instruction for running the easyRF http demo server here:
+You can find the instructions for running the easyRF http demo server here:
 
 [https://github.com/EasyRF/http-server-demo](https://github.com/EasyRF/http-server-demo)
 
@@ -108,6 +108,5 @@ To upload the demo run:
 
 ### Coming soon
 
-* Utilties for putting text and images on the display
 * Support for Low Power Modes (LPM)
 * Update of Firmware Over The Air (FOTA) using a Bootload
