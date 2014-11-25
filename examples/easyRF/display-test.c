@@ -86,7 +86,7 @@ PROCESS_THREAD(display_process, ev, data)
   /* Open external flash */
   EXTERNAL_FLASH.open();
 
-#if 0
+#if 1
   copy_file_from_romfs_to_cfs("/verdane8_bold.bmp", "verdane8_bold_cfs.bmp");
 #endif
 
