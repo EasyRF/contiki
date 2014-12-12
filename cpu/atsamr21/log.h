@@ -34,7 +34,7 @@
 #include <stdio.h>
 #include "sys/clock.h"
 extern const char* log_formatted_level_strings[];
-#define LOG_FORMATTED(level, fmt, ...) do { printf("%s - %ld - ", log_formatted_level_strings[level], clock_time()); printf("%s: ", __func__); printf(fmt,  ##__VA_ARGS__ ); printf("\n"); } while(0)
+#define LOG_FORMATTED(level, fmt, ...) do { printf("%s - %ld - ", log_formatted_level_strings[level], clock_time()); printf("%s: ", __func__); printf(fmt,  ##__VA_ARGS__ ); printf("\r\n"); } while(0)
 #else
 #define LOG_FORMATTED(level, fmt, ...)
 #endif
