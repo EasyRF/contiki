@@ -21,22 +21,22 @@
  * THE SOFTWARE.
  */
 
-#ifndef SENSOR_TCS3772_H
-#define SENSOR_TCS3772_H
+#ifndef SENSOR_LSM9DS1_H
+#define SENSOR_LSM9DS1_H
 
 #include "conf_board.h"
 #include "lib/sensors.h"
 
 /* Configure */
-#define TCS3772_READ_INTERVAL 1
+#define LSM9DS1_READ_INTERVAL 1
 
 /* Value */
-#define TCS3772_RED          0
-#define TCS3772_GREEN        1
-#define TCS3772_BLUE         2
-#define TCS3772_CLEAR        3
-#define TCS3772_PROX         4
+#define LSM9DS1_RED          0
+#define LSM9DS1_GREEN        1
+#define LSM9DS1_BLUE         2
+#define LSM9DS1_CLEAR        3
+#define LSM9DS1_PROX         4
 
-extern const struct sensors_sensor rgbc_sensor;
+extern const struct sensors_sensor nineaxis_sensor;
 
 #endif // SENSOR_TCS3772_H

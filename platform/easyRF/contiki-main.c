@@ -33,6 +33,7 @@
 #include "dev/sensor_si7020.h"
 #include "dev/sensor_joystick.h"
 #include "dev/sensor_qtouch_wheel.h"
+#include "dev/sensor_lsm9ds1.h"
 #include "dev/display_st7565s.h"
 #include "flash.h"
 #include "cfs-coffee.h"
@@ -50,7 +51,7 @@
 #include "samr21-rf.h"
 
 
-SENSORS(&pressure_sensor, &rgbc_sensor, &rh_sensor, &touch_wheel_sensor, &joystick_sensor);
+SENSORS(&pressure_sensor, &rgbc_sensor, &rh_sensor, &touch_wheel_sensor, &joystick_sensor, &nineaxis_sensor);
 
 
 /*---------------------------------------------------------------------------*/

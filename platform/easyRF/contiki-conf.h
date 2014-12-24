@@ -95,7 +95,7 @@ typedef uint32_t rtimer_clock_t;
  */
 
 #ifndef DBG_CONF_USB
-#define DBG_CONF_USB                1 /**< All debugging over UART by default */
+#define DBG_CONF_USB                0 /**< All debugging over UART by default */
 #endif
 
 #define LOG_FORMATTED_CONF_ENABLED  1

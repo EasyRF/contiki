@@ -69,11 +69,11 @@ PROCESS_THREAD(http_post_process, ev, data)
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
     snprintf((char *)sensor_data, sizeof(sensor_data), "{\"red\":\"%02X\",\"green\":\"%02X\",\"blue\":\"%02X\"}",
-             rgbc_sensor.value(RGBC_RED_BYTE),
-             rgbc_sensor.value(RGBC_GREEN_BYTE),
-             rgbc_sensor.value(RGBC_BLUE_BYTE));
+             rgbc_sensor.value(TCS3772_RED),
+             rgbc_sensor.value(TCS3772_GREEN),
+             rgbc_sensor.value(TCS3772_BLUE));
 
-    http_socket_post(&hs, "http://192.168.2.7:9999/api/devices/1",
+    http_socket_post(&hs, "http://192.168.1.34:9999/api/devices/1",
                      sensor_data, strlen((const char *)sensor_data),
                      "application/json", http_socket_callback, 0);
 
