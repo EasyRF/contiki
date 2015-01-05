@@ -31,11 +31,16 @@
 #define LSM9DS1_READ_INTERVAL 1
 
 /* Value */
-#define LSM9DS1_RED          0
-#define LSM9DS1_GREEN        1
-#define LSM9DS1_BLUE         2
-#define LSM9DS1_CLEAR        3
-#define LSM9DS1_PROX         4
+#define LSM9DS1_TEMP          0
+#define LSM9DS1_GYRO_X        1
+#define LSM9DS1_GYRO_Y        2
+#define LSM9DS1_GYRO_Z        3
+#define LSM9DS1_ACC_X         4
+#define LSM9DS1_ACC_Y         5
+#define LSM9DS1_ACC_Z         6
+#define LSM9DS1_COMPASS_X     7
+#define LSM9DS1_COMPASS_Y     8
+#define LSM9DS1_COMPASS_Z     9
 
 extern const struct sensors_sensor nineaxis_sensor;
 

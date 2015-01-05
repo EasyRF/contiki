@@ -102,41 +102,54 @@ PROCESS_THREAD(sensors_test_process, ev, data)
   while (1) {
       PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event);
 
-//      sensor = (struct sensors_sensor *)data;
-//
-//      if (sensor == &touch_wheel_sensor) {
-//	  INFO("state: %d, position = %d",
-//	       touch_wheel_sensor.value(TOUCH_WHEEL_STATE),
-//	       touch_wheel_sensor.value(TOUCH_WHEEL_POSITION));
-//
-//	  snprintf(text_buffer, sizeof(text_buffer), "Wheel: %d",
-//		   touch_wheel_sensor.value(TOUCH_WHEEL_POSITION));
-//
-//	  canvas_textbox_draw_string_reset(&display_st7565s, &tb_wheel_position, verdane8_bold, text_buffer);
-//
-//      } else if (sensor == &joystick_sensor) {
-//	  INFO("joystick position: %d",
-//	       joystick_sensor.value(JOYSTICK_STATE));
-//      } else if (sensor == &pressure_sensor) {
-//	  INFO("ambient pressure: %d, temperature: %d",
-//	       pressure_sensor.value(BMP180_PRESSURE),
-//	       pressure_sensor.value(BMP180_TEMPERATURE));
-//      } else if (sensor == &rgbc_sensor) {
-//	  INFO("red: %d, green: %d, blue: %d, clear: %d, prox: %d",
-//	       rgbc_sensor.value(TCS3772_RED),
-//	       rgbc_sensor.value(TCS3772_GREEN),
-//	       rgbc_sensor.value(TCS3772_BLUE),
-//	       rgbc_sensor.value(TCS3772_CLEAR),
-//	       rgbc_sensor.value(TCS3772_PROX));
-//
-//	  snprintf(text_buffer, sizeof(text_buffer), "Red: %d",
-//		   rgbc_sensor.value(TCS3772_RED));
-//	  canvas_textbox_draw_string_reset(&display_st7565s, &tb_color_red, verdane7, text_buffer);
-//      } else if (sensor == &rh_sensor) {
-//	  INFO("humidity: %d, temperature: %d",
-//	       rh_sensor.value(SI7020_HUMIDITY),
-//	       rh_sensor.value(SI7020_TEMPERATURE));
-//      }
+      sensor = (struct sensors_sensor *)data;
+
+      if (sensor == &touch_wheel_sensor) {
+	  INFO("state: %d, position = %d",
+	       touch_wheel_sensor.value(TOUCH_WHEEL_STATE),
+	       touch_wheel_sensor.value(TOUCH_WHEEL_POSITION));
+
+	  snprintf(text_buffer, sizeof(text_buffer), "Wheel: %d",
+		   touch_wheel_sensor.value(TOUCH_WHEEL_POSITION));
+
+	  canvas_textbox_draw_string_reset(&display_st7565s, &tb_wheel_position, verdane8_bold, text_buffer);
+
+      } else if (sensor == &joystick_sensor) {
+	  INFO("joystick position: %d",
+	       joystick_sensor.value(JOYSTICK_STATE));
+      } else if (sensor == &pressure_sensor) {
+	  INFO("ambient pressure: %d, temperature: %d",
+	       pressure_sensor.value(BMP180_PRESSURE),
+	       pressure_sensor.value(BMP180_TEMPERATURE));
+      } else if (sensor == &rgbc_sensor) {
+	  INFO("red: %d, green: %d, blue: %d, clear: %d, prox: %d",
+	       rgbc_sensor.value(TCS3772_RED),
+	       rgbc_sensor.value(TCS3772_GREEN),
+	       rgbc_sensor.value(TCS3772_BLUE),
+	       rgbc_sensor.value(TCS3772_CLEAR),
+	       rgbc_sensor.value(TCS3772_PROX));
+
+	  snprintf(text_buffer, sizeof(text_buffer), "Red: %d",
+		   rgbc_sensor.value(TCS3772_RED));
+	  canvas_textbox_draw_string_reset(&display_st7565s, &tb_color_red, verdane7, text_buffer);
+      } else if (sensor == &rh_sensor) {
+	  INFO("humidity: %d, temperature: %d",
+	       rh_sensor.value(SI7020_HUMIDITY),
+	       rh_sensor.value(SI7020_TEMPERATURE));
+      } else if (sensor == &nineaxis_sensor) {
+    INFO("GYRO %6d;%6;%6d ACC %6d;%6;%d COMPASS %6d;%6;%6d (T %d)",
+         nineaxis_sensor.value(LSM9DS1_GYRO_X),
+         nineaxis_sensor.value(LSM9DS1_GYRO_Y),
+         nineaxis_sensor.value(LSM9DS1_GYRO_Z),
+         nineaxis_sensor.value(LSM9DS1_ACC_X),
+         nineaxis_sensor.value(LSM9DS1_ACC_Y),
+         nineaxis_sensor.value(LSM9DS1_ACC_Z),
+         nineaxis_sensor.value(LSM9DS1_COMPASS_X),
+         nineaxis_sensor.value(LSM9DS1_COMPASS_Y),
+         nineaxis_sensor.value(LSM9DS1_COMPASS_Z),
+         nineaxis_sensor.value(LSM9DS1_TEMP));
+      }
+
   }
 
   PROCESS_END();
@@ -196,6 +209,15 @@ PROCESS_THREAD(http_post_process, ev, data)
 	       "\"humidity\":%d,"
 	       "\"joystick\":\"%s\","
 	       "\"wheel\":%d"
+         "\"gyro_x\":%d,"
+         "\"gyro_y\":%d,"
+         "\"gyro_z\":%d,"
+         "\"acceleration_x\":%d,"
+         "\"acceleration_y\":%d,"
+         "\"acceleration_z\":%d,"
+         "\"compass_x\":%d,"
+         "\"compass_y\":%d,"
+         "\"compass_z\":%d,"
 	       "}",
 	       (uint8_t)(red   * 255 / rgb_max),
 	       (uint8_t)(green * 255 / rgb_max),
@@ -205,7 +227,16 @@ PROCESS_THREAD(http_post_process, ev, data)
 	       pressure_sensor.value     (BMP180_TEMPERATURE),
 	       rh_sensor.value           (SI7020_HUMIDITY),
 	       JOYSTICK_STATE_TO_STRING  (joystick_sensor.value(JOYSTICK_STATE)),
-	       touch_wheel_sensor.value  (TOUCH_WHEEL_POSITION)
+	       touch_wheel_sensor.value  (TOUCH_WHEEL_POSITION),
+         nineaxis_sensor.value     (LSM9DS1_GYRO_X),
+         nineaxis_sensor.value     (LSM9DS1_GYRO_Y),
+         nineaxis_sensor.value     (LSM9DS1_GYRO_Z),
+         nineaxis_sensor.value     (LSM9DS1_ACC_X),
+         nineaxis_sensor.value     (LSM9DS1_ACC_Y),
+         nineaxis_sensor.value     (LSM9DS1_ACC_Z),
+         nineaxis_sensor.value     (LSM9DS1_COMPASS_X),
+         nineaxis_sensor.value     (LSM9DS1_COMPASS_Y),
+         nineaxis_sensor.value     (LSM9DS1_COMPASS_Z)
       );
 
       http_socket_post(&hs, SERVER_URL,

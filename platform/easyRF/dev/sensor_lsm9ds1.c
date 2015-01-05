@@ -27,8 +27,8 @@
 #include "sensor_lsm9ds1.h"
 #include "log.h"
 
-//#undef TRACE
-//#define TRACE(...)
+#undef TRACE
+#define TRACE(...)
 
 /*** Sensor settings ***/
 
@@ -71,12 +71,17 @@
 #define COMMAND_AUTO_INC        BM(7)
 
 /* Macro to get register id from struct */
-#define REG_ADDR(regstruct,reg)  (    (uint8_t) ( (uint8_t *)&regstruct.reg - (uint8_t *)&regstruct )    )
+#define REG_ADDR(regstruct,reg)  (    (uint8_t) ( (uint8_t *)&regstruct.reg - (uint8_t *)&regstruct - 1 )    )
 
 #define GYROACC_READ_ALL    read_all_register(ACCGYR_SLAVE_ADDRESS, ((uint8_t *)&accgyr_reg) + 1, sizeof(struct accgyr_regs)-1)
-#define GYROACC_WRITE_ALL   write_all_register(ACCGYR_SLAVE_ADDRESS, ((uint8_t *)&accgyr_reg) + 0, sizeof(struct accgyr_regs)-0)
-#define MAGN_READ_ALL       read_all_register(MAGN_SLAVE_ADDRESS,   ((uint8_t *)&magn_reg) + 1, sizeof(struct magn_regs)-1)
-#define MAGN_WRITE_ALL      write_all_register(MAGN_SLAVE_ADDRESS,   ((uint8_t *)&magn_reg) + 0, sizeof(struct magn_regs)-0)
+#define GYROACC_WRITE_ALL   write_all_register(ACCGYR_SLAVE_ADDRESS,((uint8_t *)&accgyr_reg) + 0, sizeof(struct accgyr_regs)-0)
+
+#define MAGN_READ_ALL       read_all_register(MAGN_SLAVE_ADDRESS,   ((uint8_t *)&magn_reg  ) + 1, sizeof(struct magn_regs  )-1)
+#define MAGN_WRITE_ALL      write_all_register(MAGN_SLAVE_ADDRESS,  ((uint8_t *)&magn_reg  ) + 0, sizeof(struct magn_regs  )-0)
+
+/* Macros to read specific registers */
+#define GYROACC_READ(reg,length)   do{ uint8_t i=REG_ADDR(accgyr_reg,reg); i2c_master_read_reg(ACCGYR_SLAVE_ADDRESS, &i, sizeof(i), ((uint8_t *)&accgyr_reg.reg), length); }while(0)
+#define MAGN_READ(reg,length)      do{ uint8_t i=REG_ADDR(magn_reg,reg);   i2c_master_read_reg(MAGN_SLAVE_ADDRESS,   &i, sizeof(i), ((uint8_t *)&magn_reg.reg),   length); }while(0)
 
 
 /*** Accelerometer AND gyroscope settings ***/
@@ -181,16 +186,20 @@ PROCESS(lsm9ds1_process, "LSM9DS1 Process");
 static bool
 read_all_register(uint8_t slaveaddr, uint8_t * regs, uint8_t sizeofstruct)
 {
+  /*Read all registers in once is not possible due to memory hops to enable BURST read (Chapter 3.3 of datasheet) */
   uint8_t i=0;
-  if (!i2c_master_read_reg(slaveaddr, &i, sizeof(i), regs, sizeofstruct)) {
-    return false;
+  for(i=0;i<sizeofstruct;i++){
+    if (!i2c_master_read_reg(slaveaddr, &i, sizeof(i), regs+i, 1)) {
+      return false;
+    }
   }
 
-  for(i=0;i<sizeofstruct;i++){
-    TRACE("reg: 0x%02X:0x%02X", i,regs[i]);
-  }
+  //  for(i=0;i<sizeofstruct;i++){
+  //    TRACE("reg: 0x%02X:0x%02X", i,regs[i]);
+  //  }
   return true;
 }
+
 /*---------------------------------------------------------------------------*/
 static bool
 write_all_register(uint8_t slaveaddr, uint8_t * regs, uint8_t sizeofstruct)
@@ -200,9 +209,9 @@ write_all_register(uint8_t slaveaddr, uint8_t * regs, uint8_t sizeofstruct)
     return false;
   }
 
-//  for(i=0;i<sizeofstruct;i++){
-//    TRACE("reg: 0x%02X:0x%02X", i,regs[i]);
-//  }
+  //  for(i=0;i<sizeofstruct;i++){
+  //    TRACE("reg: 0x%02X:0x%02X", i,regs[i]);
+  //  }
   return true;
 }
 /*---------------------------------------------------------------------------*/
@@ -211,16 +220,17 @@ update_values(void)
 {
   struct status_regs tmp_sensor_data;
 
-  if(GYROACC_READ_ALL){
-    memcpy(tmp_sensor_data.gyro,          accgyr_reg.OUT_G,   sizeof(tmp_sensor_data.gyro));
-    memcpy(tmp_sensor_data.acceleration,  accgyr_reg.OUT_XL,  sizeof(tmp_sensor_data.acceleration));
-    tmp_sensor_data.temperature         = accgyr_reg.OUT_TEMP;
-  }
+  GYROACC_READ(OUT_TEMP,2);
+  GYROACC_READ(OUT_G[0],6);
+  GYROACC_READ(OUT_XL[0],6);
+  MAGN_READ(OUT_M[0],6);
 
-  if(MAGN_READ_ALL){
-    memcpy(tmp_sensor_data.magnetic,      magn_reg.OUT_M,   sizeof(tmp_sensor_data.gyro));
-  }
-  TRACE("status TEMP %d GYRO %d.%d.%d ACC %d.%d.%d MAGN %d.%d.%d",
+  memcpy(tmp_sensor_data.gyro,          accgyr_reg.OUT_G,   sizeof(tmp_sensor_data.gyro));
+  memcpy(tmp_sensor_data.acceleration,  accgyr_reg.OUT_XL,  sizeof(tmp_sensor_data.acceleration));
+  memcpy(tmp_sensor_data.magnetic,      magn_reg.OUT_M,     sizeof(tmp_sensor_data.gyro));
+  tmp_sensor_data.temperature           = (int32_t) accgyr_reg.OUT_TEMP * 10 / 16 + 250; /* temperature sensor result is 16 LSB/degree, 0 is 25 degrees */
+
+  TRACE("status TEMP %d GYRO %6d.%6d.%6d ACC %6d.%6d.%6d MAGN %6d.%6d.%6d",
         tmp_sensor_data.temperature, tmp_sensor_data.gyro[0], tmp_sensor_data.gyro[1], tmp_sensor_data.gyro[2], tmp_sensor_data.acceleration[0], tmp_sensor_data.acceleration[1], tmp_sensor_data.acceleration[2], tmp_sensor_data.magnetic[0], tmp_sensor_data.magnetic[1], tmp_sensor_data.magnetic[2]);
 
   /* Check if sensor values are changed */
@@ -249,7 +259,6 @@ lsm9ds1_init(void)
     TRACE("magn id: 0x%02X\n", magn_reg.WHO_AM_I);
   }
 
-
   INFO("lsm9ds1 initialized");
 }
 /*---------------------------------------------------------------------------*/
@@ -258,6 +267,8 @@ activate_sensor(void)
 {
   /* Activate Gyroscope + accelerometer */
   accgyr_reg.CTRL_REG1_G = (ACCGYR_RATE<<5) | (GYR_FULLSCALE<<3) | (GYR_BANDWIDTH<<0);
+  /* Critical settings, Block data update enabled, Auto Increment enabled */
+  accgyr_reg.CTRL_REG8 = (1<<6) | (1<<2);
   /* Activate magnetic sensor */
   magn_reg.CTRL_REG3_M = MAGN_MODE;
   /* Activate temperature compensation, set datarate and XY mode */
@@ -265,6 +276,7 @@ activate_sensor(void)
 
   GYROACC_WRITE_ALL;
   MAGN_WRITE_ALL;
+
   sensor_active = true;
   return true;
 }
@@ -281,6 +293,20 @@ static int
 value(int type)
 {
   switch(type) {
+  case LSM9DS1_TEMP:
+    return sensor_data.temperature;
+  case LSM9DS1_GYRO_X:
+  case LSM9DS1_GYRO_Y:
+  case LSM9DS1_GYRO_Z:
+    return sensor_data.gyro[type-LSM9DS1_GYRO_X];
+  case LSM9DS1_ACC_X:
+  case LSM9DS1_ACC_Y:
+  case LSM9DS1_ACC_Z:
+    return sensor_data.acceleration[type-LSM9DS1_ACC_X];
+  case LSM9DS1_COMPASS_X:
+  case LSM9DS1_COMPASS_Y:
+  case LSM9DS1_COMPASS_Z:
+    return sensor_data.magnetic[type-LSM9DS1_COMPASS_X];
   default:
     WARN("Invalid property");
     return 0;
