@@ -204,14 +204,14 @@ read_all_register(uint8_t slaveaddr, uint8_t * regs, uint8_t sizeofstruct)
 static bool
 write_all_register(uint8_t slaveaddr, uint8_t * regs, uint8_t sizeofstruct)
 {
-  uint8_t i=0;
   if (!i2c_master_write_reg(slaveaddr, regs, sizeofstruct)) {
     return false;
   }
 
-  //  for(i=0;i<sizeofstruct;i++){
-  //    TRACE("reg: 0x%02X:0x%02X", i,regs[i]);
-  //  }
+//  uint8_t i=0;
+//  for(i=0;i<sizeofstruct;i++){
+//    TRACE("reg: 0x%02X:0x%02X", i,regs[i]);
+//  }
   return true;
 }
 /*---------------------------------------------------------------------------*/
@@ -245,8 +245,6 @@ update_values(void)
 static void
 lsm9ds1_init(void)
 {
-  uint8_t regaddr, id;
-
   i2c_master_interface_init();
 
   accgyr_reg.startaddr=0;
