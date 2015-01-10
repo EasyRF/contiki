@@ -162,11 +162,12 @@ configure(int type, int value)
     if (value) {
       adc_enable(&adc_instance);
       process_start(&joystick_process, 0);
-      sensor_active = 1;
+      sensor_active = true;
+      sensors_changed(&joystick_sensor);
     } else {
       adc_disable(&adc_instance);
       process_exit(&joystick_process);
-      sensor_active = 0;
+      sensor_active = false;
     }
     return 1;
   case JOYSTICK_READ_INTERVAL:
