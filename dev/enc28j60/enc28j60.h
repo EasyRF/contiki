@@ -34,7 +34,7 @@
 
 typedef void (* enc28j60_interrupt_handler)(void);
 
-void enc28j60_init(uint8_t *mac_addr);
+int enc28j60_init(uint8_t *mac_addr);
 
 int enc28j60_send(uint8_t *data, uint16_t datalen);
 

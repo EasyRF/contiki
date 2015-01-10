@@ -128,6 +128,10 @@ main(void)
 
   dbg_init();
 
+#if DBG_CONF_USB == 1
+  clock_wait(CLOCK_SECOND * 5);
+#endif
+
   INFO("Main CPU clock: %ld", system_cpu_clock_get_hz());
 
   process_init();
@@ -158,7 +162,11 @@ main(void)
   process_start(&tcpip_process, NULL);
   uip_ds6_notification_add(&n, rpl_route_callback);
   simple_rpl_init();
-  ip64_init();
+  if (ip64_init() == 0) {
+    INFO("Ethernet interface found");
+  } else {
+    INFO("NO ethernet interface found");
+  }
 #endif /* UIP_CONF_IPV6 */
 
   energest_init();

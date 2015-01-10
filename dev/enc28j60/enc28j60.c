@@ -221,7 +221,7 @@ softreset(void)
   enc28j60_arch_spi_deselect();
 }
 /*---------------------------------------------------------------------------*/
-static void
+static int
 reset(void)
 {
   PRINTF("enc28j60: resetting chip\n");
@@ -287,7 +287,13 @@ reset(void)
   */
 
   /* Wait for OST */
-  while((readreg(ESTAT) & ESTAT_CLKRDY) == 0);
+//  while((readreg(ESTAT) & ESTAT_CLKRDY) == 0);
+
+  RTIMER_BUSYWAIT_UNTIL((readreg(ESTAT) & ESTAT_CLKRDY) == 0, RTIMER_SECOND * 2);
+
+  if ((readreg(ESTAT) & ESTAT_CLKRDY) != ESTAT_CLKRDY) {
+    return -1;
+  }
 
   softreset();
 
@@ -433,13 +439,17 @@ reset(void)
 
   /* Turn on reception */
   writereg(ECON1, ECON1_RXEN);
+
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
-void
+int
 enc28j60_init(uint8_t *mac_addr)
 {
+  int result;
+
   if(initialized) {
-    return;
+    return 0;
   }
 
   memcpy(enc_mac_addr, mac_addr, 6);
@@ -447,11 +457,16 @@ enc28j60_init(uint8_t *mac_addr)
   /* Start watchdog process */
 //  process_start(&enc_watchdog_process, NULL);
 
-  reset();
+  result = reset();
+  if (result != 0) {
+    return result;
+  }
 
   INFO("initialized");
 
   initialized = 1;
+
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
 int

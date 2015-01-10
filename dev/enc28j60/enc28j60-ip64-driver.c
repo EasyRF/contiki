@@ -50,9 +50,10 @@ enc28j60_poll_process(void)
   process_poll(&enc28j60_ip64_driver_process);
 }
 /*---------------------------------------------------------------------------*/
-static void
+static int
 init(void)
 {
+  int result;
   uint8_t eui64[8];
   uint8_t macaddr[6];
 
@@ -75,11 +76,17 @@ init(void)
   printf("MAC addr %02x:%02x:%02x:%02x:%02x:%02x\n",
          macaddr[0], macaddr[1], macaddr[2],
          macaddr[3], macaddr[4], macaddr[5]);
-  enc28j60_init(macaddr);
+
+  result = enc28j60_init(macaddr);
+  if (result != 0) {
+    return result;
+  }
 
   enc28j60_install_interrupt_handler(enc28j60_poll_process);
 
   process_start(&enc28j60_ip64_driver_process, NULL);
+
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
 static int
