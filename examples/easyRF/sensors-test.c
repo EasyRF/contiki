@@ -42,12 +42,15 @@
 
 
 #define APPLICATION_JSON        "application/json"
-#define SERVER_URL              "http://192.168.1.36:9999/api/devices/"
+#define SERVER_URL              "http://192.168.1.101:9999/api/devices/"
 
 #define MS2TICKS(ms)            ((int)((uint32_t) CLOCK_SECOND * ms / 1000))
 
-
+static bool http_post_in_progress;
 static signed short rssi;
+static struct canvas_textbox tb_wheel_position, tb_color, tb_joystick, tb_rssi;
+static char text_buffer[64];
+static int verdane7;
 
 /*---------------------------------------------------------------------------*/
 static void input_packetsniffer(void);
@@ -63,10 +66,6 @@ AUTOSTART_PROCESSES(&sensors_test_process, &http_post_process);
 PROCESS_THREAD(sensors_test_process, ev, data)
 {
   static display_value_t width, height;
-  static char text_buffer[64];
-  static int verdane7;
-  static struct canvas_textbox tb_wheel_position, tb_color, tb_joystick;
-
   struct sensors_sensor *sensor;
 
   PROCESS_BEGIN();
@@ -105,6 +104,9 @@ PROCESS_THREAD(sensors_test_process, ev, data)
                   DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE);
 
   verdane7 = canvas_load_font("/verdane7.bmp");
+
+  canvas_textbox_init(&tb_rssi, 80, width - 80, 0, 10,
+                      DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE, DISPLAY_COLOR_WHITE);
 
   canvas_textbox_init(&tb_wheel_position, 0, width, 26, 10,
                       DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE, DISPLAY_COLOR_WHITE);
@@ -168,6 +170,10 @@ void http_socket_callback(struct http_socket *s,
 {
   char *str;
 
+  INFO("http response: %d", ev);
+
+  http_post_in_progress = false;
+
   if (ev == HTTP_SOCKET_DATA) {
     str = (char *)data;
     str[datalen] = '\0';
@@ -199,6 +205,8 @@ PROCESS_THREAD(http_post_process, ev, data)
 
   PROCESS_BEGIN();
 
+  http_post_in_progress = false;
+
   ds6addr = uip_ds6_get_global(ADDR_PREFERRED);
   snprintf(server_url, sizeof(server_url),
            "%s%02x%02x:%02x%02x:%02x%02x:%02x%02x",
@@ -208,77 +216,80 @@ PROCESS_THREAD(http_post_process, ev, data)
            ds6addr->ipaddr.u8[12], ds6addr->ipaddr.u8[13],
            ds6addr->ipaddr.u8[14], ds6addr->ipaddr.u8[15]);
 
-  etimer_set(&et, CLOCK_SECOND * 1);
+  etimer_set(&et, CLOCK_SECOND * 5);
 
   while (1) {
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
-    dag = rpl_get_any_dag();
-    parent = simple_rpl_parent();
-    if (parent != NULL && dag != NULL) {
-      snprintf(parent_addr, sizeof(parent_addr),
-               "%04x:%04x:%04x:%04x",
-               uip_htons(parent->u16[4]), uip_htons(parent->u16[5]),
-               uip_htons(parent->u16[6]), uip_htons(parent->u16[7]));
-    } else {
-      memset(parent_addr, 0, sizeof(parent_addr));
-    }
+    if (!http_post_in_progress) {
+      dag = rpl_get_any_dag();
+      parent = simple_rpl_parent();
+      if (parent != NULL && dag != NULL) {
+        snprintf(parent_addr, sizeof(parent_addr),
+                 "%04x:%04x:%04x:%04x",
+                 uip_htons(parent->u16[4]), uip_htons(parent->u16[5]),
+                 uip_htons(parent->u16[6]), uip_htons(parent->u16[7]));
+      } else {
+        memset(parent_addr, 0, sizeof(parent_addr));
+      }
 
-    uint32_t red   = rgbc_sensor.value(TCS3772_RED);
-    uint32_t green = rgbc_sensor.value(TCS3772_GREEN);
-    uint32_t blue  = rgbc_sensor.value(TCS3772_BLUE);
+      uint32_t red   = rgbc_sensor.value(TCS3772_RED);
+      uint32_t green = rgbc_sensor.value(TCS3772_GREEN);
+      uint32_t blue  = rgbc_sensor.value(TCS3772_BLUE);
 
-    uint32_t rgb_max = max(red, max(green, blue));
+      uint32_t rgb_max = max(red, max(green, blue));
 
-    snprintf(sensor_data, sizeof(sensor_data),
-             "{"
-             "\"rssi\":%d,"
-             "\"p\":\"%s\","
-             "\"red\":%d,"
-             "\"green\":%d,"
-             "\"blue\":%d,"
-             "\"proximity\":%d,"
-             "\"pressure\":%d,"
-             "\"temperature\":%d,"
-             "\"humidity\":%d,"
-             "\"joystick\":\"%s\","
-             "\"wheel\":%d,"
-             "\"gyro_x\":%d,"
-             "\"gyro_y\":%d,"
-             "\"gyro_z\":%d,"
-             "\"acceleration_x\":%d,"
-             "\"acceleration_y\":%d,"
-             "\"acceleration_z\":%d,"
-             "\"compass_x\":%d,"
-             "\"compass_y\":%d,"
-             "\"compass_z\":%d"
-             "}",
-             rssi,
-             parent_addr,
-             (uint8_t)(red   * 255 / rgb_max),
-             (uint8_t)(green * 255 / rgb_max),
-             (uint8_t)(blue  * 255 / rgb_max),
-             rgbc_sensor.value         (TCS3772_PROX),
-             pressure_sensor.value     (BMP180_PRESSURE),
-             pressure_sensor.value     (BMP180_TEMPERATURE),
-             rh_sensor.value           (SI7020_HUMIDITY),
-             JOYSTICK_STATE_TO_STRING  (joystick_sensor.value(JOYSTICK_STATE)),
-             touch_wheel_sensor.value  (TOUCH_WHEEL_POSITION),
-             nineaxis_sensor.value     (LSM9DS1_GYRO_X),
-             nineaxis_sensor.value     (LSM9DS1_GYRO_Y),
-             nineaxis_sensor.value     (LSM9DS1_GYRO_Z),
-             nineaxis_sensor.value     (LSM9DS1_ACC_X),
-             nineaxis_sensor.value     (LSM9DS1_ACC_Y),
-             nineaxis_sensor.value     (LSM9DS1_ACC_Z),
-             nineaxis_sensor.value     (LSM9DS1_COMPASS_X),
-             nineaxis_sensor.value     (LSM9DS1_COMPASS_Y),
-             nineaxis_sensor.value     (LSM9DS1_COMPASS_Z)
-             );
+      snprintf(sensor_data, sizeof(sensor_data),
+               "{"
+               "\"rssi\":%d,"
+               "\"p\":\"%s\","
+               "\"red\":%d,"
+               "\"green\":%d,"
+               "\"blue\":%d,"
+               "\"proximity\":%d,"
+               "\"pressure\":%d,"
+               "\"temperature\":%d,"
+               "\"humidity\":%d,"
+               "\"joystick\":\"%s\","
+               "\"wheel\":%d,"
+               "\"gyro_x\":%d,"
+               "\"gyro_y\":%d,"
+               "\"gyro_z\":%d,"
+               "\"acceleration_x\":%d,"
+               "\"acceleration_y\":%d,"
+               "\"acceleration_z\":%d,"
+               "\"compass_x\":%d,"
+               "\"compass_y\":%d,"
+               "\"compass_z\":%d"
+               "}",
+               rssi,
+               parent_addr,
+               (uint8_t)(red   * 255 / rgb_max),
+               (uint8_t)(green * 255 / rgb_max),
+               (uint8_t)(blue  * 255 / rgb_max),
+               rgbc_sensor.value         (TCS3772_PROX),
+               pressure_sensor.value     (BMP180_PRESSURE),
+               pressure_sensor.value     (BMP180_TEMPERATURE),
+               rh_sensor.value           (SI7020_HUMIDITY),
+               JOYSTICK_STATE_TO_STRING  (joystick_sensor.value(JOYSTICK_STATE)),
+               touch_wheel_sensor.value  (TOUCH_WHEEL_POSITION),
+               nineaxis_sensor.value     (LSM9DS1_GYRO_X),
+               nineaxis_sensor.value     (LSM9DS1_GYRO_Y),
+               nineaxis_sensor.value     (LSM9DS1_GYRO_Z),
+               nineaxis_sensor.value     (LSM9DS1_ACC_X),
+               nineaxis_sensor.value     (LSM9DS1_ACC_Y),
+               nineaxis_sensor.value     (LSM9DS1_ACC_Z),
+               nineaxis_sensor.value     (LSM9DS1_COMPASS_X),
+               nineaxis_sensor.value     (LSM9DS1_COMPASS_Y),
+               nineaxis_sensor.value     (LSM9DS1_COMPASS_Z)
+               );
 
-    http_socket_post(&hs, server_url,
-                     (const uint8_t *)sensor_data, strlen((const char *)sensor_data),
-                     APPLICATION_JSON, http_socket_callback, 0);
+      http_socket_post(&hs, server_url,
+                       (const uint8_t *)sensor_data, strlen((const char *)sensor_data),
+                       APPLICATION_JSON, http_socket_callback, 0);
 
+      http_post_in_progress = true;
+  }
     etimer_restart(&et);
   }
 
@@ -297,6 +308,8 @@ input_packetsniffer(void)
     if(lladdr != NULL && linkaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_SENDER),
                                       (linkaddr_t *)lladdr)) {
       rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
+      snprintf(text_buffer, sizeof(text_buffer), "RSSI: %d", rssi);
+      canvas_textbox_draw_string_reset(&display_st7565s, &tb_rssi, verdane7, text_buffer);
     }
   }
 }
