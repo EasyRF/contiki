@@ -82,6 +82,9 @@ static volatile uint8_t rx_size;
 static volatile uint8_t rx_lqi;
 static volatile int8_t rx_rssi;
 
+/* Crystal capacitance trim value */
+static int8_t crystal_cap_trim_value = SAMR21_RF_CRYSTAL_CAP_TRIM_DEFAULT;
+
 /*---------------------------------------------------------------------------*/
 
 static void samr21_interrupt_handler(void);
@@ -470,6 +473,27 @@ get_energy_level(void)
   return ed + RSSI_BASE_VAL;
 }
 /*---------------------------------------------------------------------------*/
+static void
+set_crystal_cap_trim(radio_value_t value)
+{
+  crystal_cap_trim_value = (int8_t)value;
+
+  bool rx_was_on = phyRxState;
+
+  if (rx_was_on) {
+    off();
+  }
+
+  trx_reg_write(XOSC_CTRL_REG, (0xF << XTAL_MODE) | (crystal_cap_trim_value << XTAL_TRIM));
+
+  INFO("XOSC_CTRL_REG = %02X", trx_reg_read(XOSC_CTRL_REG));
+
+  if (rx_was_on) {
+    on();
+  }
+
+}
+/*---------------------------------------------------------------------------*/
 static radio_result_t
 get_value(radio_param_t param, radio_value_t *value)
 {
@@ -508,6 +532,9 @@ get_value(radio_param_t param, radio_value_t *value)
   case RADIO_PARAM_RSSI:
     TRACE("RADIO_PARAM_RSSI");
     *value = get_energy_level();
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_CRYSTAL_CAP_TRIM:
+    *value = crystal_cap_trim_value;
     return RADIO_RESULT_OK;
   case RADIO_CONST_CHANNEL_MIN:
     *value = SAMR21_RF_CHANNEL_MIN;
@@ -573,6 +600,13 @@ set_value(radio_param_t param, radio_value_t value)
     return RADIO_RESULT_OK;
   case RADIO_PARAM_CCA_THRESHOLD:
     set_cca_threshold(value);
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_CRYSTAL_CAP_TRIM:
+    if (value < SAMR21_RF_CRYSTAL_CAP_TRIM_MIN || value > SAMR21_RF_CRYSTAL_CAP_TRIM_MAX) {
+      WARN("Invalid crystal cap value");
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    set_crystal_cap_trim(value);
     return RADIO_RESULT_OK;
   default:
     return RADIO_RESULT_NOT_SUPPORTED;
@@ -732,7 +766,7 @@ init(void)
   phyTrxSetState(TRX_CMD_TRX_OFF);
 
   /* Set CLKM to 8 MHz */
-  trx_reg_write(TRX_CTRL_0_REG, 0x04);
+  trx_reg_write(TRX_CTRL_0_REG, (1 << TOM_EN) | (1 << PMU_EN) | 0x04);
 
   /* Auto generate CRC, Enable monitor IRQ status, always show interrupt in status register */
   trx_reg_write(TRX_CTRL_1_REG, (1 << TX_AUTO_CRC_ON) | (3 << SPI_CMD_MODE) | (1 << IRQ_MASK_MODE));
@@ -741,10 +775,13 @@ init(void)
   trx_reg_write(TRX_CTRL_2_REG, (1 << RX_SAFE_MODE) | (1 << OQPSK_SCRAM_EN));
 
   /* Enable antenna switch and use the antenna diversity algorithm */
-  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | (1 << ANT_DIV_EN));
+//  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | (1 << ANT_DIV_EN));
+
+  /* Enable antenna switch and select specific antenna */
+  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | ON_BOARD_ANTENNA);
 
   /* Set crystal capacitance value */
-  trx_reg_write(XOSC_CTRL_REG, (0xF << XTAL_MODE) | (RF_CAP_TRIM << XTAL_TRIM));
+  set_crystal_cap_trim(SAMR21_RF_CRYSTAL_CAP_TRIM_DEFAULT);
 
   /* Install transceiver interrupt handler */
   trx_irq_init(samr21_interrupt_handler);
