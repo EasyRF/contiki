@@ -50,7 +50,7 @@
 #define FONT_MAX_PX_PER_ROW   (FONT_MAX_WIDTH * FONT_MAX_CHARS)
 
 /* Maximum number of fonts in use */
-#define FONT_FD_SET_SIZE      4
+#define FONT_FD_SET_SIZE      3
 #define FONT_FD_FREE          0x0
 #define FONT_FD_USED          0x1
 
