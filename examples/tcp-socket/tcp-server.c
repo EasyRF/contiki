@@ -55,10 +55,11 @@ static int
 input(struct tcp_socket *s, void *ptr,
       const uint8_t *inputptr, int inputdatalen)
 {
-  static int seq_id;
-  char buf[MAX_PAYLOAD_LEN];
+//  static int seq_id;
+//  char buf[MAX_PAYLOAD_LEN];
+  signed short rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
 
-  printf("input %d bytes '%s'\n", inputdatalen, inputptr);
+  printf("[%d] input %d bytes '%s'\n", rssi, inputdatalen, inputptr);
 
 //  sprintf(buf, "Hello from the server! (%d)", ++seq_id);
 

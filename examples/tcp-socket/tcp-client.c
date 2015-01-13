@@ -38,7 +38,7 @@
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
-#define SEND_INTERVAL     (CLOCK_SECOND / 2)
+#define SEND_INTERVAL     (CLOCK_SECOND / 20)
 #define MAX_PAYLOAD_LEN   40
 
 #define SERVER_PORT 80
@@ -71,7 +71,7 @@ timeout_handler(void)
   }
 
   if (sending) {
-    printf("waiting for data sent...\n");
+    printf(".");
     return;
   }
 
@@ -104,7 +104,7 @@ event(struct tcp_socket *s, void *ptr,
     printf("Socket connected\n");
     connected = 1;
   } else if(ev == TCP_SOCKET_DATA_SENT) {
-    printf("Socket data was sent\n");
+//    printf("Socket data was sent\n");
     sending = 0;
   } else if(ev == TCP_SOCKET_CLOSED) {
     connected = 0;
