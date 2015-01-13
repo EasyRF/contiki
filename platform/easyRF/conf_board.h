@@ -29,7 +29,7 @@
 /*** RF chip ***/
 
 /* Trim capacitance for Crystal tuning */
-#define RF_CAP_TRIM                      0x0F
+#define SAMR21_RF_CONF_CRYSTAL_CAP_TRIM_DEFAULT   0
 
 /* SPI speed to RF chip */
 #define AT86RFX_SPI_BAUDRATE             5000000UL
