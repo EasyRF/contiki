@@ -68,6 +68,20 @@ typedef enum {
 /*---------------------------------------------------------------------------*/
 
 /* Common */
+#define EMPTY_RF_STATS {0,0,0,0,0,0,0,0,0}
+typedef uint32_t rfstat_t;
+struct RF_STATS {
+  rfstat_t rx_cnt;
+  rfstat_t rx_err_underflow;
+  rfstat_t rx_err_crc;
+  rfstat_t rx_err_len;
+  rfstat_t tx_cnt;
+  rfstat_t tx_err_radio;
+  rfstat_t tx_err_noack;
+  rfstat_t tx_err_collision;
+  rfstat_t tx_err_timeout;
+};
+static volatile struct RF_STATS rf_stats = EMPTY_RF_STATS;
 static uint16_t rnd_seed;
 static volatile PhyState_t phyState = PHY_STATE_INITIAL;
 
@@ -76,11 +90,23 @@ static uint8_t tx_buffer[PACKETBUF_SIZE];
 static volatile uint8_t trac_status;
 
 /* RX related */
+struct TOM_DATA {
+  uint32_t tim : 24;
+  int8_t   fec;
+  uint8_t  cpm[9];
+  bool     valid;
+} __attribute__ ((packed));
+
 static bool phyRxState;
-static uint8_t rx_buffer[PACKETBUF_SIZE];
+static uint8_t rx_buffer[PACKETBUF_SIZE + 4];
 static volatile uint8_t rx_size;
 static volatile uint8_t rx_lqi;
 static volatile int8_t rx_rssi;
+static volatile uint8_t rx_trac_status;
+static volatile uint8_t rx_crc_valid;
+static volatile uint8_t rx_pmu;
+static volatile struct TOM_DATA rx_tom;
+
 
 /* Crystal capacitance trim value */
 static int8_t crystal_cap_trim_value = SAMR21_RF_CRYSTAL_CAP_TRIM_DEFAULT;
@@ -126,7 +152,22 @@ phyTrxSetState(uint8_t state)
     trx_reg_write(TRX_STATE_REG, state);
   } while (state != (trx_reg_read(TRX_STATUS_REG) & TRX_STATUS_MASK));
 }
-
+/*---------------------------------------------------------------------------*/
+void
+print_rf_stats(struct RF_STATS s){
+  INFO("******** RECEIVE STATISTICS ***********");
+  INFO("* PASSED        : %d" ,s.rx_cnt);
+  INFO("* ERR crc       : %d" ,s.rx_err_crc);
+  INFO("* ERR len       : %d" ,s.rx_err_len);
+  INFO("* ERR underflow : %d" ,s.rx_err_underflow);
+  INFO("******** TRANSMIT STATISTICS **********");
+  INFO("* PASSED        : %d" ,s.tx_cnt);
+  INFO("* ERR collision : %d" ,s.tx_err_collision);
+  INFO("* ERR no ack    : %d" ,s.tx_err_noack);
+  INFO("* ERR radio     : %d" ,s.tx_err_radio);
+  INFO("* ERR timeout   : %d" ,s.tx_err_timeout);
+  INFO("***************************************");
+}
 /*---------------------------------------------------------------------------*/
 unsigned short
 samr21_random_rand(void)
@@ -172,6 +213,8 @@ transmit(unsigned short transmit_len)
   /* Log */
   TRACE("transmitting %d bytes", transmit_len);
 
+  /*TODO: wait for pending incoming packages or outgoing packages? */
+
   /* Go to TX ARET state */
   phyTrxSetState(TRX_CMD_TX_ARET_ON);
 
@@ -200,19 +243,24 @@ transmit(unsigned short transmit_len)
 
   if (phyState == PHY_STATE_TX_WAIT_END) {
     WARN("TX timeout");
+    rf_stats.tx_err_timeout++;
     return RADIO_TX_ERR;
   }
 
   if (trac_status == TRAC_STATUS_SUCCESS) {
     TRACE("RADIO_TX_OK");
+    rf_stats.tx_cnt++;
     return RADIO_TX_OK;
   } else if (trac_status == TRAC_STATUS_NO_ACK) {
     WARN("RADIO_TX_NOACK");
+    rf_stats.tx_err_noack++;
     return RADIO_TX_NOACK;
   } else if (trac_status == TRAC_STATUS_CHANNEL_ACCESS_FAILURE) {
+    rf_stats.tx_err_collision++;
     WARN("RADIO_TX_COLLISION");
     return RADIO_TX_COLLISION;
   } else {
+    rf_stats.tx_err_radio++;
     WARN("RADIO_TX_ERR");
     return RADIO_TX_ERR;
   }
@@ -236,27 +284,38 @@ read(void *buf, unsigned short buf_len)
   if (len > 0) {
     /* Check available buffer space */
     if (buf_len < len) {
+      rf_stats.rx_err_underflow++;
       WARN("Packet does not fit buffer");
       return 0;
     }
 
     /* Log */
-    TRACE("received: %d bytes, rssi: %d", len, rx_rssi);
+    TRACE("received: %d bytes, rssi: %d, lqi: %d, status: %d (CRC %d) TOM %d (FEC %d TIM %ld)",
+                     len, rx_rssi, rx_lqi, rx_trac_status, rx_crc_valid, rx_tom.valid, rx_tom.fec, rx_tom.tim);
 
-    /* Store the length of the packet */
-    packetbuf_set_datalen(len);
+    /* Check if CRC and package state is not invalid */
+    if(rx_trac_status!=7 && rx_crc_valid){
 
-    /* Store data of the packet buffer */
-    memcpy(buf, rx_buffer + 1, len);
+      rf_stats.rx_cnt++;
 
-    /* Store RSSI in dBm for the received packet */
-    packetbuf_set_attr(PACKETBUF_ATTR_RSSI, rx_rssi);
+      /* Store the length of the packet */
+      packetbuf_set_datalen(len);
 
-    /* Store link quality indicator */
-    packetbuf_set_attr(PACKETBUF_ATTR_LINK_QUALITY, rx_lqi);
+      /* Store data of the packet buffer */
+      memcpy(buf, rx_buffer + 1, len);
 
-    /* Reset rx_size to indicate no packet is pending */
-    rx_size = 0;
+      /* Store RSSI in dBm for the received packet */
+      packetbuf_set_attr(PACKETBUF_ATTR_RSSI, rx_rssi);
+
+      /* Store link quality indicator */
+      packetbuf_set_attr(PACKETBUF_ATTR_LINK_QUALITY, rx_lqi);
+
+      /* Reset rx_size to indicate no packet is pending */
+      rx_size = 0;
+    }
+    else{
+      rf_stats.rx_crc_err++;
+    }
   }
 
   /* Return the number of received bytes */
@@ -676,24 +735,55 @@ samr21_interrupt_handler(void)
      * When PHY state is IDLE it is RX
      */
     if (PHY_STATE_IDLE == phyState) {
-      /* Read and convert ED level to obtain RSSI measurement */
-      rx_rssi = (int8_t)trx_reg_read(PHY_ED_LEVEL_REG) + RSSI_BASE_VAL;
 
-      /* Read first byte from frame buffer which holds the frame size */
+      /* TODO: statistics */
+      /* Check if previous package is not pending */
+      if(rx_size){
+        rf_stats.rx_underflow++;
+        return;
+      }
+
+      /* Read first byte from frame buffer which holds the PSDU size (data + 2 bytes CRC) */
       trx_frame_read(&size, 1);
 
-      /* Read again from the frame buffer and this time read size + 2 bytes
-       * Size is read again and LQI is included which is stored in the last byte */
-      trx_frame_read(rx_buffer, size + 2);
+      if(size<=127){
 
-      /* Calculate size of the frame without CRC bytes */
-      rx_size = size - PHY_CRC_SIZE;
+        /* Read again from the frame buffer and this time read size + 4 bytes (length byte + (data + CRC) + LQI + ED + RX STATUS)
+         * Size is read again and LQI is included which is stored in the last byte */
+        trx_frame_read(rx_buffer, size + 4);
 
-      /* Store LQI */
-      rx_lqi = rx_buffer[size + 1];
+        /* Read and convert ED level to obtain RSSI measurement result is between -94 and -11 dB (accuracy +-5dB)  */
+        rx_rssi = (int8_t)rx_buffer[size + 1] + RSSI_BASE_VAL;
 
-      /* Poll the process */
-      process_poll(&samr21_rf_process);
+        /* Store LQI (Package Error Rate: 0=100% 50=97% 100=72% 128=50% 150=25% 200=3% 255=PER 0%) */
+        rx_lqi  = rx_buffer[size + 2];
+
+        /* TRAC_STATUS = bit 4,5,6 of RX_STATUS byte  (0=SUCCES,2=SUCCES WAITING FOR ACK, 7=INVALID) */
+        rx_trac_status =  (rx_buffer[size + 3] >> 4) & 7;
+
+        /* CRC_VALID = bit 7 of RX_STATUS byte */
+        rx_crc_valid   =  (rx_buffer[size + 3] >> 7);
+
+        /* Calculate size of the frame without CRC bytes */
+        rx_size = size - PHY_CRC_SIZE;
+
+        /* Read PMU value */
+        rx_pmu  = trx_reg_read(PHY_PMU_VALUE_REG);
+
+        /* Get TOM data. after 114 bytes of data the TOM data is corrupted by overlapping frame RAM space */
+        rx_tom.valid = size < 114;
+
+        /* Read TOM data from SRAM address 0x73 */
+        if(rx_tom.valid){
+          trx_sram_read(0x73, (uint8_t *)&rx_tom, 13);
+        }
+
+        /* Poll the process */
+        process_poll(&samr21_rf_process);
+      }
+      else{
+        rf_stats.rx_err_len++;
+      }
     } else if (PHY_STATE_TX_WAIT_END == phyState) {
       /* Interrupt was caused by a TX, read TX result */
       trac_status = (trx_reg_read(TRX_STATE_REG) >> TRAC_STATUS) & 7;
@@ -766,7 +856,7 @@ init(void)
   phyTrxSetState(TRX_CMD_TRX_OFF);
 
   /* Set CLKM to 8 MHz */
-  trx_reg_write(TRX_CTRL_0_REG, (1 << TOM_EN) | (1 << PMU_EN) | 0x04);
+  trx_reg_write(TRX_CTRL_0_REG, 0x4 | (1 << TOM_EN) | (1 << PMU_EN));
 
   /* Auto generate CRC, Enable monitor IRQ status, always show interrupt in status register */
   trx_reg_write(TRX_CTRL_1_REG, (1 << TX_AUTO_CRC_ON) | (3 << SPI_CMD_MODE) | (1 << IRQ_MASK_MODE));
@@ -817,6 +907,13 @@ PROCESS_THREAD(samr21_rf_process, ev, data)
 
     /* Clear global packet buffer */
     packetbuf_clear();
+
+    /*Print changes in RF statistics */
+    static struct RF_STATS last_stats = EMPTY_RF_STATS;
+    if(last_stats!=rf_stats){
+      last_stats=rf_stats;
+      print_rf_stats(last_stats);
+    }
 
     /* Fill packet buffer with received data and its attributes */
     /* Be sure a packet has been received by checking the return value */
