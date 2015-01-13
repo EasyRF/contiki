@@ -95,7 +95,7 @@ typedef uint32_t rtimer_clock_t;
  */
 
 #ifndef DBG_CONF_USB
-#define DBG_CONF_USB                0 /**< All debugging over UART by default */
+#define DBG_CONF_USB                1 /**< All debugging over UART by default */
 #endif
 
 #define LOG_FORMATTED_CONF_ENABLED  1
@@ -234,10 +234,10 @@ typedef uint32_t rtimer_clock_t;
 #define UIP_CONF_ND6_RETRANS_TIMER       10000
 
 #ifndef NBR_TABLE_CONF_MAX_NEIGHBORS
-#define NBR_TABLE_CONF_MAX_NEIGHBORS        20
+#define NBR_TABLE_CONF_MAX_NEIGHBORS        10
 #endif
 #ifndef UIP_CONF_MAX_ROUTES
-#define UIP_CONF_MAX_ROUTES                 20
+#define UIP_CONF_MAX_ROUTES                 10
 #endif
 
 /* 6lowpan */
