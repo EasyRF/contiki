@@ -114,10 +114,41 @@ void dhcp_callback(uint8_t configured)
   }
 }
 /*---------------------------------------------------------------------------*/
+extern uint32_t _sstack;
+void write_aa_to_stack()
+{
+  uint8_t * start, * end;
+
+  start = (uint8_t *)&_sstack;
+  end = (uint8_t *)(__get_MSP() - 1000);
+
+  for (; start < end; start++) {
+    *start = 0xAA;
+  }
+}
+/*---------------------------------------------------------------------------*/
+void print_stack_info()
+{
+  uint8_t * start, * end, *curr;
+
+  start = (uint8_t *)&_sstack;
+  end = (uint8_t *)__get_MSP();
+
+  for (curr = start; curr < end; curr++) {
+    if (*curr != 0xAA) {
+      break;
+    }
+  }
+
+  INFO("STACK INFO: start = %lX, end = %lX, curr = %lX, left = %lX", (long)start, (long)end, (long)curr, (long)(curr - start));
+}
+/*---------------------------------------------------------------------------*/
 int
 main(void)
 {
   static struct uip_ds6_notification n;
+
+  write_aa_to_stack();
 
   clock_init();
 
@@ -128,11 +159,14 @@ main(void)
 
   dbg_init();
 
+
 #if DBG_CONF_USB == 1
   clock_wait(CLOCK_SECOND * 5);
 #endif
 
   INFO("Main CPU clock: %ld", system_cpu_clock_get_hz());
+
+  print_stack_info();
 
   process_init();
 
