@@ -33,7 +33,8 @@
 
 #define IP64_CONF_ETH_DRIVER             enc28j60_ip64_driver
 
-#define IP64_CONF_DHCP                   1
-#define IP64_CONF_DHCP_CALLBACK          1
+#define IP64_ADDRMAP_CONF_ENTRIES         16
+#define IP64_CONF_DHCP                    1
+#define IP64_CONF_DHCP_CALLBACK           1
 
 #endif // IP64CONF_H
