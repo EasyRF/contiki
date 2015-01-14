@@ -49,6 +49,7 @@
 #include "log.h"
 #include "dbg-arch.h"
 #include "samr21-rf.h"
+#include "stack_test.h"
 
 
 SENSORS(&pressure_sensor, &rgbc_sensor, &rh_sensor, &touch_wheel_sensor, &joystick_sensor, &nineaxis_sensor);
@@ -114,35 +115,6 @@ void dhcp_callback(uint8_t configured)
   }
 }
 /*---------------------------------------------------------------------------*/
-extern uint32_t _sstack;
-void write_aa_to_stack()
-{
-  uint8_t * start, * end;
-
-  start = (uint8_t *)&_sstack;
-  end = (uint8_t *)(__get_MSP() - 1000);
-
-  for (; start < end; start++) {
-    *start = 0xAA;
-  }
-}
-/*---------------------------------------------------------------------------*/
-void print_stack_info()
-{
-  uint8_t * start, * end, *curr;
-
-  start = (uint8_t *)&_sstack;
-  end = (uint8_t *)__get_MSP();
-
-  for (curr = start; curr < end; curr++) {
-    if (*curr != 0xAA) {
-      break;
-    }
-  }
-
-  INFO("STACK INFO: start = %lX, end = %lX, curr = %lX, left = %lX", (long)start, (long)end, (long)curr, (long)(curr - start));
-}
-/*---------------------------------------------------------------------------*/
 int
 main(void)
 {
@@ -153,12 +125,10 @@ main(void)
   clock_init();
 
   leds_init();
-  leds_off(LEDS_WHITE);
-  leds_on(LEDS_GREEN);
+  leds_off(LEDS_ALL);
   display_st7565s.init();
 
   dbg_init();
-
 
 #if DBG_CONF_USB == 1
   clock_wait(CLOCK_SECOND * 5);
