@@ -39,6 +39,7 @@
 #include "dev/sensor_lsm9ds1.h"
 #include "dev/display_st7565s.h"
 #include "canvas_textbox.h"
+#include "stack_test.h"
 
 
 #define APPLICATION_JSON        "application/json"

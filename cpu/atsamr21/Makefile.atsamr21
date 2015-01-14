@@ -162,7 +162,7 @@ TARGET_LIBFILES += -lsamd21_qt_gcc
 TARGET_LIBFILES += -larm_cortexM0l_math
 
 # ASF Contiki glue files
-CONTIKI_CPU_SOURCEFILES += log.c clock-arch.c watchdog-arch.c rtimer-arch.c random-arch.c samr21-rf.c samr21-flash.c
+CONTIKI_CPU_SOURCEFILES += log.c clock-arch.c watchdog-arch.c rtimer-arch.c random-arch.c samr21-rf.c samr21-flash.c stack_test.c
 
 ### Use the existing debug I/O in cpu/arm/common
 CONTIKI_CPU_DIRS += ../arm/common/dbg-io
