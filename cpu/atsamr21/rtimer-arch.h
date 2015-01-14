@@ -27,7 +27,7 @@
 #include "dev/watchdog.h"
 #include "sys/rtimer.h"
 
-#define RTIMER_ARCH_SECOND  42598 //32768
+#define RTIMER_ARCH_SECOND  32768
 
 #define RTIMER_BUSYWAIT_UNTIL(cond, max_time)                           \
   do {                                                                  \
