@@ -33,9 +33,17 @@
 #include "packetbuf.h"
 #include "net/mac/frame802154.h"
 #include "samr21-rf.h"
-
+#include "lib/sensors.h"
+#include "dev/sensor_joystick.h"
+#include "dev/leds.h"
 #include "log.h"
 
+
+/* Enables RF test code */
+//#define MEASURE_RF_CLOCK
+//#define TOM_ENABLED
+
+/* Disable TRACE logging */
 #undef TRACE
 #define TRACE(...)
 
@@ -52,9 +60,11 @@ static const int tx_power_dbm[SAMR21_MAX_TX_POWER_REG_VAL + 1] = {
 #define OUTPUT_POWER_MIN  tx_power_dbm[SAMR21_MAX_TX_POWER_REG_VAL]
 #define OUTPUT_POWER_MAX  tx_power_dbm[0]
 
+#define ON_BOARD_ANTENNA  0x01
+#define EXTERNAL_ANTENNA  0x02
 
-#define ON_BOARD_ANTENNA              0x01
-#define EXTERNAL_ANTENNA              0x02
+/* Use defines above and logic OR to enabled antenna diversity */
+#define SELECTED_ANTENNA  (ON_BOARD_ANTENNA)
 
 /*---------------------------------------------------------------------------*/
 
@@ -67,7 +77,7 @@ typedef enum {
 
 /*---------------------------------------------------------------------------*/
 
-/* Common */
+/* RF statistics */
 #define EMPTY_RF_STATS {0,0,0,0,0,0,0,0,0}
 typedef uint32_t rfstat_t;
 struct RF_STATS {
@@ -82,6 +92,8 @@ struct RF_STATS {
   rfstat_t tx_err_timeout;
 };
 static volatile struct RF_STATS rf_stats = EMPTY_RF_STATS;
+
+/* Common */
 static uint16_t rnd_seed;
 static volatile PhyState_t phyState = PHY_STATE_INITIAL;
 
@@ -90,23 +102,21 @@ static uint8_t tx_buffer[PACKETBUF_SIZE];
 static volatile uint8_t trac_status;
 
 /* RX related */
+static bool phyRxState;
+static uint8_t rx_buffer[PACKETBUF_SIZE + 4];
+static volatile uint8_t rx_size;
+static volatile uint8_t rx_lqi;
+static volatile int8_t rx_rssi;
+
+#ifdef TOM_ENABLED
 struct TOM_DATA {
   uint32_t tim : 24;
   int8_t   fec;
   uint8_t  cpm[9];
   bool     valid;
 } __attribute__ ((packed));
-
-static bool phyRxState;
-static uint8_t rx_buffer[PACKETBUF_SIZE + 4];
-static volatile uint8_t rx_size;
-static volatile uint8_t rx_lqi;
-static volatile int8_t rx_rssi;
-static volatile uint8_t rx_trac_status;
-static volatile uint8_t rx_crc_valid;
-static volatile uint8_t rx_pmu;
 static volatile struct TOM_DATA rx_tom;
-
+#endif
 
 /* Crystal capacitance trim value */
 static int8_t crystal_cap_trim_value = SAMR21_RF_CRYSTAL_CAP_TRIM_DEFAULT;
@@ -134,7 +144,7 @@ gpio_init(void)
   /* Enable APB Clock for RFCTRL */
   PM->APBCMASK.reg |= (1<<PM_APBCMASK_RFCTRL_Pos);
 
-  /* Setup RF Control register for controlling antenna selection */
+  /* Setup RF control register for controlling antenna selection */
   REG_RFCTRL_FECFG = RFCTRL_CFG_ANT_DIV;
   struct system_pinmux_config config_pinmux;
   system_pinmux_get_config_defaults(&config_pinmux);
@@ -153,20 +163,34 @@ phyTrxSetState(uint8_t state)
   } while (state != (trx_reg_read(TRX_STATUS_REG) & TRX_STATUS_MASK));
 }
 /*---------------------------------------------------------------------------*/
-void
-print_rf_stats(struct RF_STATS s){
-  INFO("******** RECEIVE STATISTICS ***********");
-  INFO("* PASSED        : %d" ,s.rx_cnt);
-  INFO("* ERR crc       : %d" ,s.rx_err_crc);
-  INFO("* ERR len       : %d" ,s.rx_err_len);
-  INFO("* ERR underflow : %d" ,s.rx_err_underflow);
-  INFO("******** TRANSMIT STATISTICS **********");
-  INFO("* PASSED        : %d" ,s.tx_cnt);
-  INFO("* ERR collision : %d" ,s.tx_err_collision);
-  INFO("* ERR no ack    : %d" ,s.tx_err_noack);
-  INFO("* ERR radio     : %d" ,s.tx_err_radio);
-  INFO("* ERR timeout   : %d" ,s.tx_err_timeout);
-  INFO("***************************************");
+static void
+print_rf_stats(bool force_print)
+{
+  static struct RF_STATS last_stats = EMPTY_RF_STATS;
+
+  if (memcmp((void *)&last_stats, (void *)&rf_stats, sizeof(rf_stats)) != 0) {
+    force_print = true;
+  }
+
+  memcpy((void *)&last_stats, (void *)&rf_stats, sizeof(rf_stats));
+
+  if (force_print) {
+    INFO("******** RECEIVE STATISTICS ***********");
+    INFO("* PASSED        : %ld" , rf_stats.rx_cnt);
+    INFO("* ERR crc       : %ld" , rf_stats.rx_err_crc);
+    INFO("* ERR len       : %ld" , rf_stats.rx_err_len);
+    INFO("* ERR underflow : %ld" , rf_stats.rx_err_underflow);
+#ifdef TOM_ENABLED
+    INFO("* TOM.FEC       : %d"  , rx_tom.fec);
+#endif
+    INFO("******** TRANSMIT STATISTICS **********");
+    INFO("* PASSED        : %ld" , rf_stats.tx_cnt);
+    INFO("* ERR collision : %ld" , rf_stats.tx_err_collision);
+    INFO("* ERR no ack    : %ld" , rf_stats.tx_err_noack);
+    INFO("* ERR radio     : %ld" , rf_stats.tx_err_radio);
+    INFO("* ERR timeout   : %ld" , rf_stats.tx_err_timeout);
+    INFO("***************************************");
+  }
 }
 /*---------------------------------------------------------------------------*/
 unsigned short
@@ -210,10 +234,10 @@ prepare(const void *payload, unsigned short payload_len)
 static int
 transmit(unsigned short transmit_len)
 {
-  /* Log */
-  TRACE("transmitting %d bytes", transmit_len);
+  int tx_result;
 
   /*TODO: wait for pending incoming packages or outgoing packages? */
+  while (receiving_packet());
 
   /* Go to TX ARET state */
   phyTrxSetState(TRX_CMD_TX_ARET_ON);
@@ -229,6 +253,9 @@ transmit(unsigned short transmit_len)
   /* Set PHY state such that we're waiting for TX END interrupt */
   phyState = PHY_STATE_TX_WAIT_END;
 
+  /* Timestamp before transmission */
+  rtimer_clock_t start = rtimer_arch_now();
+
   /* Send the packet by toggling the SLP line */
   TRX_SLP_TR_HIGH();
   TRX_TRIG_DELAY();
@@ -241,29 +268,37 @@ transmit(unsigned short transmit_len)
   /* Wait for tx result */
   RTIMER_BUSYWAIT_UNTIL((phyState != PHY_STATE_TX_WAIT_END), RTIMER_SECOND);
 
+  /* Timestamp after transmission */
+  rtimer_clock_t duration = rtimer_arch_now() - start;
+
   if (phyState == PHY_STATE_TX_WAIT_END) {
-    WARN("TX timeout");
     rf_stats.tx_err_timeout++;
-    return RADIO_TX_ERR;
+    WARN("TX timeout");
+    tx_result = RADIO_TX_ERR;
+  } else {
+    if (trac_status == TRAC_STATUS_SUCCESS) {
+      rf_stats.tx_cnt++;
+      TRACE("RADIO_TX_OK");
+      tx_result = RADIO_TX_OK;
+    } else if (trac_status == TRAC_STATUS_NO_ACK) {
+      rf_stats.tx_err_noack++;
+      WARN("RADIO_TX_NOACK, packet length: %d", transmit_len);
+      tx_result = RADIO_TX_NOACK;
+    } else if (trac_status == TRAC_STATUS_CHANNEL_ACCESS_FAILURE) {
+      rf_stats.tx_err_collision++;
+      WARN("RADIO_TX_COLLISION");
+      tx_result = RADIO_TX_COLLISION;
+    } else {
+      rf_stats.tx_err_radio++;
+      WARN("RADIO_TX_ERR");
+      tx_result = RADIO_TX_ERR;
+    }
   }
 
-  if (trac_status == TRAC_STATUS_SUCCESS) {
-    TRACE("RADIO_TX_OK");
-    rf_stats.tx_cnt++;
-    return RADIO_TX_OK;
-  } else if (trac_status == TRAC_STATUS_NO_ACK) {
-    WARN("RADIO_TX_NOACK");
-    rf_stats.tx_err_noack++;
-    return RADIO_TX_NOACK;
-  } else if (trac_status == TRAC_STATUS_CHANNEL_ACCESS_FAILURE) {
-    rf_stats.tx_err_collision++;
-    WARN("RADIO_TX_COLLISION");
-    return RADIO_TX_COLLISION;
-  } else {
-    rf_stats.tx_err_radio++;
-    WARN("RADIO_TX_ERR");
-    return RADIO_TX_ERR;
-  }
+  TRACE("transmit result: %d, length: %d, time [usec]: %ld",
+        tx_result, transmit_len, duration * 1000000 / RTIMER_ARCH_SECOND);
+
+  return tx_result;
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -291,31 +326,24 @@ read(void *buf, unsigned short buf_len)
 
     /* Log */
     TRACE("received: %d bytes, rssi: %d, lqi: %d, status: %d (CRC %d) TOM %d (FEC %d TIM %ld)",
-                     len, rx_rssi, rx_lqi, rx_trac_status, rx_crc_valid, rx_tom.valid, rx_tom.fec, rx_tom.tim);
+          len, rx_rssi, rx_lqi, rx_trac_status, rx_tom.valid, rx_tom.fec, (long)rx_tom.tim);
 
-    /* Check if CRC and package state is not invalid */
-    if(rx_trac_status!=7 && rx_crc_valid){
+    rf_stats.rx_cnt++;
 
-      rf_stats.rx_cnt++;
+    /* Store the length of the packet */
+    packetbuf_set_datalen(len);
 
-      /* Store the length of the packet */
-      packetbuf_set_datalen(len);
+    /* Store data of the packet buffer */
+    memcpy(buf, rx_buffer + 1, len);
 
-      /* Store data of the packet buffer */
-      memcpy(buf, rx_buffer + 1, len);
+    /* Store RSSI in dBm for the received packet */
+    packetbuf_set_attr(PACKETBUF_ATTR_RSSI, rx_rssi);
 
-      /* Store RSSI in dBm for the received packet */
-      packetbuf_set_attr(PACKETBUF_ATTR_RSSI, rx_rssi);
+    /* Store link quality indicator */
+    packetbuf_set_attr(PACKETBUF_ATTR_LINK_QUALITY, rx_lqi);
 
-      /* Store link quality indicator */
-      packetbuf_set_attr(PACKETBUF_ATTR_LINK_QUALITY, rx_lqi);
-
-      /* Reset rx_size to indicate no packet is pending */
-      rx_size = 0;
-    }
-    else{
-      rf_stats.rx_crc_err++;
-    }
+    /* Reset rx_size to indicate no packet is pending */
+    rx_size = 0;
   }
 
   /* Return the number of received bytes */
@@ -735,53 +763,43 @@ samr21_interrupt_handler(void)
      * When PHY state is IDLE it is RX
      */
     if (PHY_STATE_IDLE == phyState) {
-
-      /* TODO: statistics */
       /* Check if previous package is not pending */
-      if(rx_size){
-        rf_stats.rx_underflow++;
+      if(rx_size) {
+        rf_stats.rx_err_underflow++;
         return;
       }
 
       /* Read first byte from frame buffer which holds the PSDU size (data + 2 bytes CRC) */
       trx_frame_read(&size, 1);
 
-      if(size<=127){
+      if (size <= 127) {
 
         /* Read again from the frame buffer and this time read size + 4 bytes (length byte + (data + CRC) + LQI + ED + RX STATUS)
          * Size is read again and LQI is included which is stored in the last byte */
         trx_frame_read(rx_buffer, size + 4);
 
-        /* Read and convert ED level to obtain RSSI measurement result is between -94 and -11 dB (accuracy +-5dB)  */
-        rx_rssi = (int8_t)rx_buffer[size + 1] + RSSI_BASE_VAL;
-
         /* Store LQI (Package Error Rate: 0=100% 50=97% 100=72% 128=50% 150=25% 200=3% 255=PER 0%) */
-        rx_lqi  = rx_buffer[size + 2];
+        rx_lqi  = rx_buffer[size + 1];
 
-        /* TRAC_STATUS = bit 4,5,6 of RX_STATUS byte  (0=SUCCES,2=SUCCES WAITING FOR ACK, 7=INVALID) */
-        rx_trac_status =  (rx_buffer[size + 3] >> 4) & 7;
-
-        /* CRC_VALID = bit 7 of RX_STATUS byte */
-        rx_crc_valid   =  (rx_buffer[size + 3] >> 7);
+        /* Read and convert ED level to obtain RSSI measurement result is between -94 and -11 dB (accuracy +-5dB)  */
+        rx_rssi = (int8_t)rx_buffer[size + 2] + RSSI_BASE_VAL;
 
         /* Calculate size of the frame without CRC bytes */
         rx_size = size - PHY_CRC_SIZE;
 
-        /* Read PMU value */
-        rx_pmu  = trx_reg_read(PHY_PMU_VALUE_REG);
-
+#ifdef TOM_ENABLED
         /* Get TOM data. after 114 bytes of data the TOM data is corrupted by overlapping frame RAM space */
         rx_tom.valid = size < 114;
 
         /* Read TOM data from SRAM address 0x73 */
-        if(rx_tom.valid){
-          trx_sram_read(0x73, (uint8_t *)&rx_tom, 13);
+        if (rx_tom.valid) {
+          trx_sram_read(0x7C, (uint8_t *)&rx_tom.fec, 1);
         }
-
+#endif
         /* Poll the process */
         process_poll(&samr21_rf_process);
       }
-      else{
+      else {
         rf_stats.rx_err_len++;
       }
     } else if (PHY_STATE_TX_WAIT_END == phyState) {
@@ -832,6 +850,53 @@ get_rnd_value(void)
   return rnd;
 }
 /*---------------------------------------------------------------------------*/
+#ifdef MEASURE_RF_CLOCK
+#include <gclk.h>
+
+#define PWM_MODULE    TC3
+#define PWM_OUT_PIN   PIN_PA15E_TC3_WO1
+#define PWM_OUT_MUX   MUX_PA15E_TC3_WO1
+
+static struct tc_module tc_instance;
+
+static void
+configure_tc(void)
+{
+  leds_off(LEDS_RED);
+
+  /* Show revision of RF chip since the GCLK_IO differs for rev. A */
+  INFO("DID: %lX", REG_DSU_DID);
+
+  struct system_pinmux_config mux_conf;
+  system_pinmux_get_config_defaults(&mux_conf);
+  mux_conf.direction = SYSTEM_PINMUX_PIN_DIR_INPUT;
+  mux_conf.input_pull = SYSTEM_PINMUX_PIN_PULL_NONE;
+  mux_conf.mux_position = 5;
+  system_pinmux_pin_set_config(PIN_PC16, &mux_conf);
+
+  struct system_gclk_gen_config gclk_config;
+  gclk_config.source_clock = SYSTEM_CLOCK_SOURCE_GCLKIN;
+  gclk_config.high_when_disabled = false;
+  gclk_config.division_factor = 1;
+  gclk_config.run_in_standby = false;
+  gclk_config.output_enable = false;
+  system_gclk_gen_set_config(GCLK_GENERATOR_5, &gclk_config);
+  system_gclk_gen_enable(GCLK_GENERATOR_5);
+
+  struct tc_config config_tc;
+  tc_get_config_defaults(&config_tc);
+  config_tc.clock_source = GCLK_GENERATOR_5;
+  config_tc.counter_size = TC_COUNTER_SIZE_16BIT;
+  config_tc.wave_generation = TC_WAVE_GENERATION_NORMAL_PWM;
+  config_tc.counter_16_bit.compare_capture_channel[1] = 0xFFFF - (0xFFFF / 100);
+  config_tc.pwm_channel[1].enabled = true;
+  config_tc.pwm_channel[1].pin_out = PWM_OUT_PIN;
+  config_tc.pwm_channel[1].pin_mux = PWM_OUT_MUX;
+  tc_init(&tc_instance, PWM_MODULE, &config_tc);
+  tc_enable(&tc_instance);
+}
+#endif
+/*---------------------------------------------------------------------------*/
 static int
 init(void)
 {
@@ -855,8 +920,8 @@ init(void)
   /* Turn radio off */
   phyTrxSetState(TRX_CMD_TRX_OFF);
 
-  /* Set CLKM to 8 MHz */
-  trx_reg_write(TRX_CTRL_0_REG, 0x4 | (1 << TOM_EN) | (1 << PMU_EN));
+  /* 8 MHz to CPU */
+  trx_reg_write(TRX_CTRL_0_REG, 0x4);// | (1 << TOM_EN) | (1 << PMU_EN));
 
   /* Auto generate CRC, Enable monitor IRQ status, always show interrupt in status register */
   trx_reg_write(TRX_CTRL_1_REG, (1 << TX_AUTO_CRC_ON) | (3 << SPI_CMD_MODE) | (1 << IRQ_MASK_MODE));
@@ -864,11 +929,15 @@ init(void)
   /* Enable frame buffer protection and keep OQPSK_SCRAM_EN bit on its reset value */
   trx_reg_write(TRX_CTRL_2_REG, (1 << RX_SAFE_MODE) | (1 << OQPSK_SCRAM_EN));
 
-  /* Enable antenna switch and use the antenna diversity algorithm */
-//  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | (1 << ANT_DIV_EN));
+#if (SELECTED_ANTENNA == (ON_BOARD_ANTENNA + EXTERNAL_ANTENNA))
+  /* Use the antenna diversity algorithm */
+  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | (1 << ANT_DIV_EN));
+#else
+  /* Use specific antenna */
+  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | SELECTED_ANTENNA);
+#endif
 
   /* Enable antenna switch and select specific antenna */
-  trx_reg_write(ANT_DIV_REG, (1 << ANT_EXT_SW_EN) | ON_BOARD_ANTENNA);
 
   /* Set crystal capacitance value */
   set_crystal_cap_trim(SAMR21_RF_CRYSTAL_CAP_TRIM_DEFAULT);
@@ -892,7 +961,68 @@ init(void)
   /* Log */
   INFO("at86rf233 initialized");
 
+#ifdef MEASURE_RF_CLOCK
+  /* Code for measuring RF frequency */
+  configure_tc();
+#endif
+
   return 0;
+}
+/*---------------------------------------------------------------------------*/
+PROCESS(crystal_cap_adjust_process, "crystal_cap_adjust_process");
+PROCESS_THREAD(crystal_cap_adjust_process, ev, data)
+{
+  struct sensors_sensor *sensor;
+
+  PROCESS_BEGIN();
+
+  process_start(&sensors_process, NULL);
+  SENSORS_ACTIVATE(joystick_sensor);
+
+  while (1) {
+    PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event);
+
+    sensor = (struct sensors_sensor *)data;
+
+    if (sensor == &joystick_sensor ) {
+      if (joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_UP ||
+          joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_DOWN) {
+        int cap_trim;
+        NETSTACK_RADIO.get_value(RADIO_PARAM_CRYSTAL_CAP_TRIM, &cap_trim);
+
+        if (joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_UP) {
+          cap_trim += 1;
+        } else if (joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_DOWN) {
+          cap_trim -= 1;
+        }
+
+        /* Adjust crystal cap trim */
+        if (NETSTACK_RADIO.set_value(RADIO_PARAM_CRYSTAL_CAP_TRIM, cap_trim) == RADIO_RESULT_OK) {
+          INFO("New cap trim = %d", cap_trim);
+        }
+      }
+    }
+  }
+
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/
+PROCESS(printf_rf_stats_process, "Print RF Stats");
+PROCESS_THREAD(printf_rf_stats_process, ev, data)
+{
+  static struct etimer et;
+
+  PROCESS_BEGIN();
+
+  while(1) {
+    etimer_set(&et, CLOCK_SECOND * 5);
+
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+
+    print_rf_stats(true);
+  }
+
+  PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(samr21_rf_process, ev, data)
@@ -901,19 +1031,15 @@ PROCESS_THREAD(samr21_rf_process, ev, data)
 
   TRACE("samr21_rf_process started");
 
+  process_start(&printf_rf_stats_process, 0);
+  process_start(&crystal_cap_adjust_process, 0);
+
   while(1) {
     /* Block until process is polled from the interrupt handler */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
 
     /* Clear global packet buffer */
     packetbuf_clear();
-
-    /*Print changes in RF statistics */
-    static struct RF_STATS last_stats = EMPTY_RF_STATS;
-    if(last_stats!=rf_stats){
-      last_stats=rf_stats;
-      print_rf_stats(last_stats);
-    }
 
     /* Fill packet buffer with received data and its attributes */
     /* Be sure a packet has been received by checking the return value */
