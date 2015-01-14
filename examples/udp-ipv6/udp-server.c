@@ -49,18 +49,31 @@ AUTOSTART_PROCESSES(&resolv_process,&udp_server_process);
 static void
 tcpip_handler(void)
 {
-  static clock_time_t previous = 0;
-  static int seq_id;
-  char buf[MAX_PAYLOAD_LEN];
+//  static clock_time_t previous = 0;
+  static int last_seq_id = 0;
+//  char buf[MAX_PAYLOAD_LEN];
 
   if(uip_newdata()) {
-    clock_time_t now = clock_time();
+
+    uint8_t seq_id = ((uint8_t *)uip_appdata)[0];
+
+    if (last_seq_id + 1 == seq_id) {
+      leds_on(LEDS_GREEN);
+      leds_off(LEDS_RED);
+    } else {
+      leds_off(LEDS_GREEN);
+      leds_on(LEDS_RED);
+    }
+
+    last_seq_id = seq_id;
+
+//    clock_time_t now = clock_time();
 
 //    printf("delta: %ld\n", now - previous);
 
-    leds_toggle(LEDS_GREEN);
+//    leds_toggle(LEDS_GREEN);
 
-    previous = now;
+//    previous = now;
 //    ((char *)uip_appdata)[uip_datalen()] = 0;
 //    INFO("Server received: '%s' from ", (char *)uip_appdata);
 //    PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
