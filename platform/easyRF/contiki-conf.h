@@ -71,6 +71,7 @@ typedef uint32_t rtimer_clock_t;
  */
 
 #define LEDS_WHITE    8
+#define LEDS_CONF_ALL 0xF
 
 /** @} */
 /*---------------------------------------------------------------------------*/
