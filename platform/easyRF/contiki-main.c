@@ -131,7 +131,7 @@ main(void)
   dbg_init();
 
 #if DBG_CONF_USB == 1
-  clock_wait(CLOCK_SECOND * 5);
+  clock_wait(CLOCK_SECOND * 1);
 #endif
 
   INFO("Main CPU clock: %ld", system_cpu_clock_get_hz());
