@@ -42,6 +42,8 @@
 /* Enables RF test code */
 //#define MEASURE_RF_CLOCK
 //#define TOM_ENABLED
+//#define PRINT_RF_STATS
+//#define CRYSTAL_ADJUST
 
 /* Disable TRACE logging */
 #undef TRACE
@@ -163,36 +165,6 @@ phyTrxSetState(uint8_t state)
   } while (state != (trx_reg_read(TRX_STATUS_REG) & TRX_STATUS_MASK));
 }
 /*---------------------------------------------------------------------------*/
-static void
-print_rf_stats(bool force_print)
-{
-  static struct RF_STATS last_stats = EMPTY_RF_STATS;
-
-  if (memcmp((void *)&last_stats, (void *)&rf_stats, sizeof(rf_stats)) != 0) {
-    force_print = true;
-  }
-
-  memcpy((void *)&last_stats, (void *)&rf_stats, sizeof(rf_stats));
-
-  if (force_print) {
-    INFO("******** RECEIVE STATISTICS ***********");
-    INFO("* PASSED        : %ld" , rf_stats.rx_cnt);
-    INFO("* ERR crc       : %ld" , rf_stats.rx_err_crc);
-    INFO("* ERR len       : %ld" , rf_stats.rx_err_len);
-    INFO("* ERR underflow : %ld" , rf_stats.rx_err_underflow);
-#ifdef TOM_ENABLED
-    INFO("* TOM.FEC       : %d"  , rx_tom.fec);
-#endif
-    INFO("******** TRANSMIT STATISTICS **********");
-    INFO("* PASSED        : %ld" , rf_stats.tx_cnt);
-    INFO("* ERR collision : %ld" , rf_stats.tx_err_collision);
-    INFO("* ERR no ack    : %ld" , rf_stats.tx_err_noack);
-    INFO("* ERR radio     : %ld" , rf_stats.tx_err_radio);
-    INFO("* ERR timeout   : %ld" , rf_stats.tx_err_timeout);
-    INFO("***************************************");
-  }
-}
-/*---------------------------------------------------------------------------*/
 unsigned short
 samr21_random_rand(void)
 {
@@ -270,6 +242,7 @@ transmit(unsigned short transmit_len)
 
   /* Timestamp after transmission */
   rtimer_clock_t duration = rtimer_arch_now() - start;
+  (void) duration;
 
   if (phyState == PHY_STATE_TX_WAIT_END) {
     rf_stats.tx_err_timeout++;
@@ -325,8 +298,12 @@ read(void *buf, unsigned short buf_len)
     }
 
     /* Log */
-    TRACE("received: %d bytes, rssi: %d, lqi: %d, status: %d (CRC %d) TOM %d (FEC %d TIM %ld)",
-          len, rx_rssi, rx_lqi, rx_trac_status, rx_tom.valid, rx_tom.fec, (long)rx_tom.tim);
+#ifdef TOM_ENABLED
+    TRACE("received: %d bytes, rssi: %d, lqi: %d, TOM %d (FEC %d TIM %ld)",
+          len, rx_rssi, rx_lqi, rx_tom.valid, rx_tom.fec, (long)rx_tom.tim);
+#else
+    TRACE("received: %d bytes, rssi: %d, lqi: %d", len, rx_rssi, rx_lqi);
+#endif
 
     rf_stats.rx_cnt++;
 
@@ -572,8 +549,6 @@ set_crystal_cap_trim(radio_value_t value)
   }
 
   trx_reg_write(XOSC_CTRL_REG, (0xF << XTAL_MODE) | (crystal_cap_trim_value << XTAL_TRIM));
-
-  INFO("XOSC_CTRL_REG = %02X", trx_reg_read(XOSC_CTRL_REG));
 
   if (rx_was_on) {
     on();
@@ -969,6 +944,7 @@ init(void)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
+#ifdef CRYSTAL_ADJUST
 PROCESS(crystal_cap_adjust_process, "crystal_cap_adjust_process");
 PROCESS_THREAD(crystal_cap_adjust_process, ev, data)
 {
@@ -1006,6 +982,39 @@ PROCESS_THREAD(crystal_cap_adjust_process, ev, data)
 
   PROCESS_END();
 }
+#endif
+/*---------------------------------------------------------------------------*/
+#ifdef PRINT_RF_STATS
+/*---------------------------------------------------------------------------*/
+static void
+print_rf_stats(bool force_print)
+{
+  static struct RF_STATS last_stats = EMPTY_RF_STATS;
+
+  if (memcmp((void *)&last_stats, (void *)&rf_stats, sizeof(rf_stats)) != 0) {
+    force_print = true;
+  }
+
+  memcpy((void *)&last_stats, (void *)&rf_stats, sizeof(rf_stats));
+
+  if (force_print) {
+    INFO("******** RECEIVE STATISTICS ***********");
+    INFO("* PASSED        : %ld" , rf_stats.rx_cnt);
+    INFO("* ERR crc       : %ld" , rf_stats.rx_err_crc);
+    INFO("* ERR len       : %ld" , rf_stats.rx_err_len);
+    INFO("* ERR underflow : %ld" , rf_stats.rx_err_underflow);
+#ifdef TOM_ENABLED
+    INFO("* TOM.FEC       : %d"  , rx_tom.fec);
+#endif
+    INFO("******** TRANSMIT STATISTICS **********");
+    INFO("* PASSED        : %ld" , rf_stats.tx_cnt);
+    INFO("* ERR collision : %ld" , rf_stats.tx_err_collision);
+    INFO("* ERR no ack    : %ld" , rf_stats.tx_err_noack);
+    INFO("* ERR radio     : %ld" , rf_stats.tx_err_radio);
+    INFO("* ERR timeout   : %ld" , rf_stats.tx_err_timeout);
+    INFO("***************************************");
+  }
+}
 /*---------------------------------------------------------------------------*/
 PROCESS(printf_rf_stats_process, "Print RF Stats");
 PROCESS_THREAD(printf_rf_stats_process, ev, data)
@@ -1024,6 +1033,7 @@ PROCESS_THREAD(printf_rf_stats_process, ev, data)
 
   PROCESS_END();
 }
+#endif
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(samr21_rf_process, ev, data)
 {
@@ -1031,8 +1041,12 @@ PROCESS_THREAD(samr21_rf_process, ev, data)
 
   TRACE("samr21_rf_process started");
 
+#ifdef PRINT_RF_STATS
   process_start(&printf_rf_stats_process, 0);
+#endif
+#ifdef CRYSTAL_ADJUST
   process_start(&crystal_cap_adjust_process, 0);
+#endif
 
   while(1) {
     /* Block until process is polled from the interrupt handler */
