@@ -65,6 +65,10 @@ void canvas_unload_font(int font_fd);
 /* Get the maximum character height of the font */
 display_pos_t canvas_font_height(int font_fd);
 
+/* Clear the contents of the textbox */
+void canvas_textbox_clear(const struct display_driver * display,
+                          struct canvas_textbox * textbox);
+
 /* Draw a string in the textbox, without cursor reset.
  * It will behave as a string append funtion */
 int canvas_textbox_draw_string(const struct display_driver * display,

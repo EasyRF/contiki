@@ -393,8 +393,8 @@ static inline void
 reset_cursor(struct canvas_textbox * textbox)
 {
   /* Set cursor position to top left corner of textbox */
-  textbox->cursor_x = textbox->rect.left + 2;
-  textbox->cursor_y = textbox->rect.top + 2;
+  textbox->cursor_x = textbox->rect.left;
+  textbox->cursor_y = textbox->rect.top;
 }
 /*---------------------------------------------------------------------------*/
 display_pos_t
@@ -410,6 +410,15 @@ canvas_font_height(int font_fd)
   fdp = &font_fd_set[font_fd];
 
   return fdp->font_height;
+}
+/*---------------------------------------------------------------------------*/
+void
+canvas_textbox_clear(const struct display_driver * display,
+                     struct canvas_textbox * textbox)
+{
+  /* Draw textbox */
+  canvas_draw_rect(display, &textbox->rect, textbox->border_color,
+                   textbox->background_color);
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -429,9 +438,6 @@ canvas_textbox_draw_string(const struct display_driver * display,
   /* Get a pointer to the font */
   fdp = &font_fd_set[font_fd];
 
-  /* Draw textbox */
-  canvas_draw_rect(display, &textbox->rect, textbox->border_color, textbox->background_color);
-
   total = 0;
   while (*s != 0 && draw_character(display, textbox, fdp, *s++) == 1) {
     total++;
@@ -449,6 +455,9 @@ canvas_textbox_draw_string_reset(const struct display_driver * display,
 {
   /* Initialize cursor position */
   reset_cursor(textbox);
+
+  /* Draw textbox */
+  canvas_textbox_clear(display, textbox);
 
   /* Draw the string */
   return canvas_textbox_draw_string(display, textbox, font_fd, s);
