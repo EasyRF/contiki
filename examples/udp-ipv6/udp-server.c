@@ -27,6 +27,7 @@
  *
  */
 
+#include "compiler.h"
 #include "contiki.h"
 #include "contiki-lib.h"
 #include "contiki-net.h"
@@ -43,29 +44,69 @@
 
 static struct uip_udp_conn *server_conn;
 
+#define MAX_CLIENTS 10
+struct client_data {
+  uip_ipaddr_t src_addr;
+  uint8_t last_seq_id;
+  bool used;
+};
+static struct client_data client_data[MAX_CLIENTS];
+
 PROCESS(udp_server_process, "UDP server process");
 AUTOSTART_PROCESSES(&resolv_process,&udp_server_process);
+/*---------------------------------------------------------------------------*/
+static struct client_data *
+get_or_create_client_data(uip_ipaddr_t * src_addr)
+{
+  int i;
+
+  for (i = 0; i < MAX_CLIENTS; i++) {
+    struct client_data * data = &client_data[i];
+    if (data->used && uip_ipaddr_cmp(&data->src_addr, src_addr)) {
+      return data;
+    }
+  }
+
+  for (i = 0; i < MAX_CLIENTS; i++) {
+    struct client_data * data = &client_data[i];
+    if (data->used == false) {
+      uip_ipaddr_copy(&data->src_addr, src_addr);
+      data->last_seq_id = 0;
+      data->used = true;
+      return data;
+    }
+  }
+
+  return 0;
+}
 /*---------------------------------------------------------------------------*/
 static void
 tcpip_handler(void)
 {
 //  static clock_time_t previous = 0;
-  static int last_seq_id = 0;
+//  static int last_seq_id = 0;
 //  char buf[MAX_PAYLOAD_LEN];
 
   if(uip_newdata()) {
 
-    uint8_t seq_id = ((uint8_t *)uip_appdata)[0];
+    struct client_data * data = get_or_create_client_data(&UIP_IP_BUF->srcipaddr);
+    if (!data) {
+      WARN("No more room for clients");
+      return;
+    }
 
-    if (last_seq_id + 1 == seq_id) {
-      leds_on(LEDS_GREEN);
+    uint8_t current_seq_id = ((uint8_t *)uip_appdata)[0];
+
+    if ((uint8_t)(data->last_seq_id + 1) == current_seq_id) {
+      leds_toggle(LEDS_GREEN);
       leds_off(LEDS_RED);
     } else {
       leds_off(LEDS_GREEN);
       leds_on(LEDS_RED);
+      WARN("Invalid seq. Expected %d got %d", (uint8_t)(data->last_seq_id + 1), current_seq_id);
     }
 
-    last_seq_id = seq_id;
+    data->last_seq_id = current_seq_id;
 
 //    clock_time_t now = clock_time();
 

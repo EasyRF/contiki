@@ -27,11 +27,13 @@
  *
  */
 
+#include <string.h>
+#include "compiler.h"
 #include "contiki.h"
 #include "contiki-lib.h"
 #include "contiki-net.h"
-
-#include <string.h>
+#include "dev/leds.h"
+#include "log.h"
 
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
@@ -48,23 +50,67 @@ static uint8_t inputbuf[INPUTBUFSIZE];
 #define OUTPUTBUFSIZE 400
 static uint8_t outputbuf[OUTPUTBUFSIZE];
 
+
+#define MAX_CLIENTS 10
+struct client_data {
+  uip_ipaddr_t src_addr;
+  uint8_t last_seq_id;
+  bool used;
+};
+static struct client_data client_data[MAX_CLIENTS];
+
 PROCESS(tcp_server_process, "TCP server process");
 AUTOSTART_PROCESSES(&resolv_process,&tcp_server_process);
+/*---------------------------------------------------------------------------*/
+static struct client_data *
+get_or_create_client_data(uip_ipaddr_t * src_addr)
+{
+  int i;
+
+  for (i = 0; i < MAX_CLIENTS; i++) {
+    struct client_data * data = &client_data[i];
+    if (data->used && uip_ipaddr_cmp(&data->src_addr, src_addr)) {
+      return data;
+    }
+  }
+
+  for (i = 0; i < MAX_CLIENTS; i++) {
+    struct client_data * data = &client_data[i];
+    if (data->used == false) {
+      uip_ipaddr_copy(&data->src_addr, src_addr);
+      data->last_seq_id = 0;
+      data->used = true;
+      return data;
+    }
+  }
+
+  return 0;
+}
 /*---------------------------------------------------------------------------*/
 static int
 input(struct tcp_socket *s, void *ptr,
       const uint8_t *inputptr, int inputdatalen)
 {
-//  static int seq_id;
-//  char buf[MAX_PAYLOAD_LEN];
-  signed short rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
+  if (inputdatalen > 1) {
+    struct client_data * data = get_or_create_client_data(&s->c->ripaddr);
+    if (!data) {
+      WARN("No more room for clients");
+      return 0;
+    }
 
-  printf("[%d] input %d bytes '%s'\n", rssi, inputdatalen, inputptr);
+    uint8_t current_seq_id = ((uint8_t *)uip_appdata)[0];
 
-//  sprintf(buf, "Hello from the server! (%d)", ++seq_id);
+    if ((uint8_t)(data->last_seq_id + 1) == current_seq_id) {
+      leds_toggle(LEDS_GREEN);
+      leds_off(LEDS_RED);
+    } else {
+      leds_off(LEDS_GREEN);
+      leds_on(LEDS_RED);
+      WARN("Invalid seq. Expected %d got %d", (uint8_t)(data->last_seq_id + 1), current_seq_id);
+    }
 
-//  /* Send response back */
-//  tcp_socket_send_str(s, buf);
+    data->last_seq_id = current_seq_id;
+  }
 
   return 0;
 }

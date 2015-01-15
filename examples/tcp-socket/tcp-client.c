@@ -26,20 +26,22 @@
  * This file is part of the Contiki operating system.
  *
  */
+#include <string.h>
+#include <stdbool.h>
 
 #include "contiki.h"
 #include "contiki-lib.h"
 #include "contiki-net.h"
 #include "net/ip/resolv.h"
+#include "dev/leds.h"
+#include "log.h"
 
-#include <string.h>
-#include <stdbool.h>
 
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
 #define SEND_INTERVAL     (CLOCK_SECOND / 20)
-#define MAX_PAYLOAD_LEN   40
+#define MAX_PAYLOAD_LEN   125
 
 #define SERVER_PORT 80
 
@@ -63,26 +65,30 @@ static char buf[MAX_PAYLOAD_LEN];
 static void
 timeout_handler(void)
 {
-  static int seq_id;
+//  static int seq_id;
 
   if (!connected) {
-    printf("waiting for socket connection...\n");
+//    INFO("waiting for socket connection...");
     return;
   }
 
   if (sending) {
-    printf(".");
+//    printf(".");
     return;
   }
 
-  printf("Client sending to: ");
-  PRINT6ADDR(&ipaddr);
-  sprintf(buf, "Hello %d from the client", ++seq_id);
-  printf(" (msg: %s)\n", buf);
+  buf[0]++;
+
+  leds_toggle(LEDS_GREEN);
+
+//  printf("Client sending to: ");
+//  PRINT6ADDR(&ipaddr);
+//  sprintf(buf, "Hello %d from the client", ++seq_id);
+//  printf(" (msg: %s)\n", buf);
 #if SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION
   tcp_socket_send(&socket, (const uint8_t *)buf, UIP_APPDATA_SIZE);
 #else /* SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION */
-  tcp_socket_send(&socket, (const uint8_t *)buf, strlen(buf));
+  tcp_socket_send(&socket, (const uint8_t *)buf, (random_rand() % MAX_PAYLOAD_LEN) + 1);
 #endif /* SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION */
 
   sending = 1;
@@ -108,12 +114,15 @@ event(struct tcp_socket *s, void *ptr,
     sending = 0;
   } else if(ev == TCP_SOCKET_CLOSED) {
     connected = 0;
+    sending = 0;
     printf("Socket closed\n");
   } else if(ev == TCP_SOCKET_ABORTED) {
     connected = 0;
+    sending = 0;
     printf("Socket reset\n");
   } else if(ev == TCP_SOCKET_TIMEDOUT) {
     connected = 0;
+    sending = 0;
     printf("Socket timedout\n");
   }
 }
@@ -200,6 +209,11 @@ PROCESS_THREAD(tcp_client_process, ev, data)
 #endif
 
   print_local_addresses();
+
+  /* Fill buffer with test data */
+  for (int i = 0; i < MAX_PAYLOAD_LEN; i++) {
+    buf[i] = i;
+  }
 
   static resolv_status_t status = RESOLV_STATUS_UNCACHED;
   while(status != RESOLV_STATUS_CACHED) {
