@@ -48,13 +48,25 @@
 #define MS2TICKS(ms)            ((int)((uint32_t) CLOCK_SECOND * (ms) / 1000))
 #define TICKS2MS(ticks)         ((uint32_t)(ticks) * 1000 / CLOCK_SECOND)
 
+enum display_page {
+  SENSOR_PAGE_1,
+  SENSOR_PAGE_2,
+  NETWORK_PAGE,
+  LAST_PAGE
+};
+
+static enum display_page current_page;
+
+static char text_buffer[128];
+static int text_font, header_font;
+
+static struct canvas_textbox tb_header, tb_labels, tb_values;
+
 static signed short rssi, lqi;
+
 static bool http_post_enabled;
 static bool http_post_in_progress;
 static clock_time_t http_post_start_time;
-static struct canvas_textbox tb_wheel_position, tb_color, tb_joystick, tb_rssi;
-static char text_buffer[64];
-static int verdane7;
 
 /*---------------------------------------------------------------------------*/
 static void input_packetsniffer(void);
@@ -67,10 +79,96 @@ PROCESS(sensors_test_process, "Sensors-test process");
 PROCESS(http_post_process, "HTTP POST Process");
 AUTOSTART_PROCESSES(&sensors_test_process, &http_post_process);
 /*---------------------------------------------------------------------------*/
+static void
+update_values(void)
+{
+  if (current_page == SENSOR_PAGE_1) {
+    int temp = pressure_sensor.value(BMP180_TEMPERATURE);
+    int temp_before_sep = temp / 10;
+    int temp_after_sep  = temp - (temp_before_sep * 10);
+
+    snprintf(text_buffer, sizeof(text_buffer), "%d.%d.%d\n%d\n%s\n%d\n%d.%d\n%d",
+              (int16_t)rgbc_sensor.value(TCS3772_RED),
+              (int16_t)rgbc_sensor.value(TCS3772_GREEN),
+              (int16_t)rgbc_sensor.value(TCS3772_BLUE),
+              (uint8_t)touch_wheel_sensor.value(TOUCH_WHEEL_POSITION),
+              JOYSTICK_STATE_TO_STRING(joystick_sensor.value(JOYSTICK_STATE)),
+              pressure_sensor.value(BMP180_PRESSURE),
+              temp_before_sep, temp_after_sep,
+              rh_sensor.value(SI7020_HUMIDITY));
+  } else if (current_page == SENSOR_PAGE_2) {
+    snprintf(text_buffer, sizeof(text_buffer), "%d.%d.%d\n%d.%d.%d\n%d.%d.%d",
+              (int16_t)nineaxis_sensor.value(LSM9DS1_GYRO_X),
+              (int16_t)nineaxis_sensor.value(LSM9DS1_GYRO_Y),
+              (int16_t)nineaxis_sensor.value(LSM9DS1_GYRO_Z),
+              (int16_t)nineaxis_sensor.value(LSM9DS1_ACC_X),
+              (int16_t)nineaxis_sensor.value(LSM9DS1_ACC_Y),
+              (int16_t)nineaxis_sensor.value(LSM9DS1_ACC_Z),
+              (int16_t)nineaxis_sensor.value(LSM9DS1_COMPASS_X),
+              (int16_t)nineaxis_sensor.value(LSM9DS1_COMPASS_Y),
+              (int16_t)nineaxis_sensor.value(LSM9DS1_COMPASS_Z));
+  } else if (current_page == NETWORK_PAGE) {
+    snprintf(text_buffer, sizeof(text_buffer), "%d\n%d",
+             rssi, lqi);
+  }
+
+  canvas_textbox_draw_string_reset(&display_st7565s, &tb_values, text_font,
+                                   text_buffer);
+}
+/*---------------------------------------------------------------------------*/
+static void
+show_page(enum display_page page)
+{
+  current_page = page;
+
+  if (current_page == SENSOR_PAGE_1) {
+    canvas_textbox_draw_string_reset(&display_st7565s, &tb_header, header_font,
+                                     "       Sensors 1");
+
+    canvas_textbox_draw_string_reset(&display_st7565s, &tb_labels, text_font,
+                                     "Color:\nWheel:\nJoystick:\nPressure:\nTemp:\nHumidity:");
+  } else if (current_page == SENSOR_PAGE_2) {
+    canvas_textbox_draw_string_reset(&display_st7565s, &tb_header, header_font,
+                                     "       Sensors 2");
+
+    canvas_textbox_draw_string_reset(&display_st7565s, &tb_labels, text_font,
+                                     "Gyro:\nAccel:\nCompass:");
+  } else if (current_page == NETWORK_PAGE) {
+    canvas_textbox_draw_string_reset(&display_st7565s, &tb_header, header_font,
+                                     "        Network");
+
+    canvas_textbox_draw_string_reset(&display_st7565s, &tb_labels, text_font,
+                                     "RSSI:\nLQI:");
+  }
+
+  update_values();
+}
+/*---------------------------------------------------------------------------*/
+static inline void
+handle_joystick_event(int joystick_position)
+{
+  enum display_page new_page = current_page;
+
+  if (joystick_position == JOYSTICK_LEFT) {
+    new_page = current_page - 1;
+  } else if (joystick_position == JOYSTICK_RIGHT) {
+    new_page = current_page + 1;
+  }
+
+  if (new_page < 0) {
+    new_page = LAST_PAGE - 1;
+  } else if (new_page == LAST_PAGE) {
+    new_page = 0;
+  }
+
+  if (new_page != current_page) {
+    show_page(new_page);
+  }
+}
+/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(sensors_test_process, ev, data)
 {
-  static display_value_t width, height;
-  struct sensors_sensor *sensor;
+  static struct etimer et;
 
   PROCESS_BEGIN();
 
@@ -81,8 +179,6 @@ PROCESS_THREAD(sensors_test_process, ev, data)
 
   process_start(&sensors_process, NULL);
 
-  rgbc_sensor.configure(TCS3772_READ_INTERVAL,  MS2TICKS(TCS3772_CYCLE_MS) );
-
   SENSORS_ACTIVATE(touch_wheel_sensor);
   SENSORS_ACTIVATE(joystick_sensor);
   SENSORS_ACTIVATE(pressure_sensor);
@@ -90,101 +186,78 @@ PROCESS_THREAD(sensors_test_process, ev, data)
   SENSORS_ACTIVATE(rh_sensor);
   SENSORS_ACTIVATE(nineaxis_sensor);
 
+  rgbc_sensor.configure(TCS3772_READ_INTERVAL,  MS2TICKS(TCS3772_CYCLE_MS) );
   pressure_sensor.configure(BMP180_READ_INTERVAL, CLOCK_SECOND / 2);
 
   display_st7565s.on();
   display_st7565s.set_value(DISPLAY_BACKLIGHT, 1);
   display_st7565s.set_value(DISPLAY_FLIP_X, 1);
   display_st7565s.set_value(DISPLAY_FLIP_Y, 1);
-  display_st7565s.get_value(DISPLAY_WIDTH, &width);
-  display_st7565s.get_value(DISPLAY_HEIGHT, &height);
+
+  /* Load header and text fonts */
+  text_font = canvas_load_font("/verdane7.bmp");
+  header_font = canvas_load_font("/verdane10_bold.bmp");
+
+  /* Initialize textbox for header */
+  canvas_textbox_init(&tb_header, 0, 128, 0, 10,
+                      DISPLAY_COLOR_BLACK,
+                      DISPLAY_COLOR_WHITE,
+                      DISPLAY_COLOR_WHITE);
+
+  /* Create header line */
+  struct canvas_rectangle header_line_rect = { 0, 11, 128, 2 };
+
+  /* Initialize textbox for labels */
+  canvas_textbox_init(&tb_labels, 0, 50, 15, 64 - 15,
+                      DISPLAY_COLOR_BLACK,
+                      DISPLAY_COLOR_WHITE,
+                      DISPLAY_COLOR_WHITE);
+
+  /* Initialize textbox for values */
+  canvas_textbox_init(&tb_values, 52, 128 - 52, 15, 64 - 15,
+                      DISPLAY_COLOR_BLACK,
+                      DISPLAY_COLOR_WHITE,
+                      DISPLAY_COLOR_WHITE);
 
   /* Open external flash */
-  EXTERNAL_FLASH.open();
+//  EXTERNAL_FLASH.open();
 
-  struct canvas_point p;
-  p.x = 0; p.y = 0;
+  /* Draw easyRF logo */
+  struct canvas_point p = {0, 12};
   canvas_draw_bmp(&display_st7565s, "/logo_easyrf.bmp", &p,
                   DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE);
 
-  verdane7 = canvas_load_font("/verdane7.bmp");
+  /* Wait 5 seconds for showing splash screen */
+//  etimer_set(&et, CLOCK_SECOND * 5);
+//  PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
-  canvas_textbox_init(&tb_rssi, 80, width - 80, 0, 10,
-                      DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE, DISPLAY_COLOR_WHITE);
+  /* Clear screen */
+  display_st7565s.clear();
 
-  canvas_textbox_init(&tb_wheel_position, 0, width, 26, 10,
-                      DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE, DISPLAY_COLOR_WHITE);
+  /* Draw header line */
+  canvas_draw_rect(&display_st7565s, &header_line_rect,
+                   DISPLAY_COLOR_BLACK, DISPLAY_COLOR_BLACK);
 
-  canvas_textbox_init(&tb_joystick, 0, width, 36, 10,
-                      DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE, DISPLAY_COLOR_WHITE);
-
-  canvas_textbox_init(&tb_color, 0, width, 46, 10,
-                      DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE, DISPLAY_COLOR_WHITE);
+  /* Show sensor page at first */
+  show_page(SENSOR_PAGE_1);
 
   while (1) {
-    PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event);
 
-    sensor = (struct sensors_sensor *)data;
+    etimer_set(&et, CLOCK_SECOND / 2);
 
-    if (sensor == &touch_wheel_sensor) {
-      snprintf(text_buffer, sizeof(text_buffer), "Whl: %d",
-               touch_wheel_sensor.value(TOUCH_WHEEL_POSITION));
-      canvas_textbox_draw_string_reset(&display_st7565s, &tb_wheel_position, verdane7, text_buffer);
-    } else if (sensor == &joystick_sensor) {
+    PROCESS_WAIT_EVENT();
 
-      if (joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_UP ||
-          joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_DOWN) {
-        int cap_trim;
-        NETSTACK_RADIO.get_value(RADIO_PARAM_CRYSTAL_CAP_TRIM, &cap_trim);
+    if (ev == sensors_event) {
+      struct sensors_sensor *sensor = (struct sensors_sensor *)data;
 
-        if (joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_UP) {
-          cap_trim += 1;
-        } else if (joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_DOWN) {
-          cap_trim -= 1;
-        }
-
-        /* Adjust crystal cap trim */
-        if (NETSTACK_RADIO.set_value(RADIO_PARAM_CRYSTAL_CAP_TRIM, cap_trim) == RADIO_RESULT_OK) {
-          INFO("New cap trim = %d", cap_trim);
-        }
-      } else if (joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_BUTTON) {
-        http_post_enabled = !http_post_enabled;
-        INFO("HTTP post %s", http_post_enabled ? "enabled" : "disabled");
-      } else if (joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_LEFT) {
-        print_stack_info();
+      if (sensor == &joystick_sensor) {
+        handle_joystick_event(joystick_sensor.value(JOYSTICK_STATE));
       }
-
-      snprintf(text_buffer, sizeof(text_buffer), "Joy: %s",
-               JOYSTICK_STATE_TO_STRING(joystick_sensor.value(JOYSTICK_STATE)));
-      canvas_textbox_draw_string_reset(&display_st7565s, &tb_joystick, verdane7, text_buffer);
-    } else if (sensor == &pressure_sensor) {
-//      INFO("ambient pressure: %d, temperature: %d",
-//           pressure_sensor.value(BMP180_PRESSURE),
-//           pressure_sensor.value(BMP180_TEMPERATURE));
-    } else if (sensor == &rgbc_sensor) {
-      snprintf(text_buffer, sizeof(text_buffer), "Clr: %02X.%02X.%02X",
-               rgbc_sensor.value(TCS3772_RED),
-               rgbc_sensor.value(TCS3772_GREEN),
-               rgbc_sensor.value(TCS3772_BLUE));
-      canvas_textbox_draw_string_reset(&display_st7565s, &tb_color, verdane7, text_buffer);
-    } else if (sensor == &rh_sensor) {
-//      INFO("humidity: %d, temperature: %d",
-//           rh_sensor.value(SI7020_HUMIDITY),
-//           rh_sensor.value(SI7020_TEMPERATURE));
-    } else if (sensor == &nineaxis_sensor) {
-//      INFO("GYRO %6d,%6d,%6d ACC %6d,%6d,%6d COMPASS %6d,%6d,%6d (T %d)",
-//           nineaxis_sensor.value(LSM9DS1_GYRO_X),
-//           nineaxis_sensor.value(LSM9DS1_GYRO_Y),
-//           nineaxis_sensor.value(LSM9DS1_GYRO_Z),
-//           nineaxis_sensor.value(LSM9DS1_ACC_X),
-//           nineaxis_sensor.value(LSM9DS1_ACC_Y),
-//           nineaxis_sensor.value(LSM9DS1_ACC_Z),
-//           nineaxis_sensor.value(LSM9DS1_COMPASS_X),
-//           nineaxis_sensor.value(LSM9DS1_COMPASS_Y),
-//           nineaxis_sensor.value(LSM9DS1_COMPASS_Z),
-//           nineaxis_sensor.value(LSM9DS1_TEMP));
     }
+
+    update_values();
   }
+
 
   PROCESS_END();
 }
@@ -347,8 +420,6 @@ input_packetsniffer(void)
                                       (linkaddr_t *)lladdr)) {
       rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
       lqi = (signed short)packetbuf_attr(PACKETBUF_ATTR_LINK_QUALITY);
-      snprintf(text_buffer, sizeof(text_buffer), "%d - %d", rssi, lqi);
-      canvas_textbox_draw_string_reset(&display_st7565s, &tb_rssi, verdane7, text_buffer);
     }
   }
 }
