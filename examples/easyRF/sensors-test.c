@@ -258,7 +258,6 @@ PROCESS_THREAD(sensors_test_process, ev, data)
     update_values();
   }
 
-
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
