@@ -151,7 +151,7 @@ canvas_draw_bmp(const struct display_driver * display,
         bitmask = 0x80;
         autofs_read(fd, &image_byte, 1);
       }
-      display->set_px(point->x + x, hdr.height - (point->y + y) - 1, ((image_byte & bitmask) != bitmask) ? fg_color : bg_color);
+      display->set_px(point->x + x, point->y + hdr.height - y - 1, ((image_byte & bitmask) != bitmask) ? fg_color : bg_color);
       bitmask >>= 1;
     }
 
