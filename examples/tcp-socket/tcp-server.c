@@ -91,7 +91,7 @@ static int
 input(struct tcp_socket *s, void *ptr,
       const uint8_t *inputptr, int inputdatalen)
 {
-  if (inputdatalen > 1) {
+  if (inputdatalen > 0) {
     struct client_data * data = get_or_create_client_data(&s->c->ripaddr);
     if (!data) {
       WARN("No more room for clients");
@@ -103,6 +103,7 @@ input(struct tcp_socket *s, void *ptr,
     if ((uint8_t)(data->last_seq_id + 1) == current_seq_id) {
       leds_toggle(LEDS_GREEN);
       leds_off(LEDS_RED);
+//      INFO("Len: %d, Seq: %d", inputdatalen, current_seq_id);
     } else {
       leds_off(LEDS_GREEN);
       leds_on(LEDS_RED);
