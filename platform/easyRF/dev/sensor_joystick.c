@@ -54,7 +54,7 @@
 #define ADC_TO_MV(x)          ((uint32_t)x * ADC_REF_VOLTAGE / ADC_MAX_VALUE)
 
 /* Update interval */
-#define JOYSTICK_DEFAULT_READ_INTERVAL    (CLOCK_SECOND / 100)
+#define JOYSTICK_DEFAULT_READ_INTERVAL    (CLOCK_SECOND / 20)
 
 
 static struct adc_module adc_instance;
