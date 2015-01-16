@@ -44,6 +44,7 @@
 
 #define APPLICATION_JSON        "application/json"
 #define SERVER_URL              "http://192.168.1.36:9999/api/devices/"
+#define HTTP_POST_INTERVAL      (CLOCK_SECOND / 5)
 
 #define MS2TICKS(ms)            ((int)((uint32_t) CLOCK_SECOND * (ms) / 1000))
 #define TICKS2MS(ticks)         ((uint32_t)(ticks) * 1000 / CLOCK_SECOND)
@@ -145,14 +146,16 @@ show_page(enum display_page page)
 }
 /*---------------------------------------------------------------------------*/
 static inline void
-handle_joystick_event(int joystick_position)
+handle_joystick_event(int joystick_state)
 {
   enum display_page new_page = current_page;
 
-  if (joystick_position == JOYSTICK_LEFT) {
+  if (joystick_state == JOYSTICK_LEFT) {
     new_page = current_page - 1;
-  } else if (joystick_position == JOYSTICK_RIGHT) {
+  } else if (joystick_state == JOYSTICK_RIGHT) {
     new_page = current_page + 1;
+  } else if (joystick_state == JOYSTICK_BUTTON) {
+    http_post_enabled = !http_post_enabled;
   }
 
   if (new_page < 0) {
@@ -291,8 +294,26 @@ void http_socket_callback(struct http_socket *s,
   }
 }
 /*---------------------------------------------------------------------------*/
+static void
+rpl_route_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
+                   int numroutes)
+{
+  static uint8_t has_rpl_route = 0;
+
+  if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
+    if (!has_rpl_route) {
+      has_rpl_route = 1;
+      http_post_enabled = true;
+      INFO("Got first RPL route (num routes = %d)", numroutes);
+    } else {
+      INFO("Got RPL route (num routes = %d)", numroutes);
+    }
+  }
+}
+/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(http_post_process, ev, data)
 {
+  static struct uip_ds6_notification n;
   static struct etimer et;
   static struct http_socket hs;
   static char sensor_data[512];
@@ -306,7 +327,9 @@ PROCESS_THREAD(http_post_process, ev, data)
 
   PROCESS_BEGIN();
 
-  http_post_enabled = true;
+  uip_ds6_notification_add(&n, rpl_route_callback);
+
+  http_post_enabled = false;
   http_post_in_progress = false;
 
   ds6addr = uip_ds6_get_global(ADDR_PREFERRED);
@@ -319,7 +342,7 @@ PROCESS_THREAD(http_post_process, ev, data)
            ds6addr->ipaddr.u8[14], ds6addr->ipaddr.u8[15]);
 
   while (1) {
-    etimer_set(&et, CLOCK_SECOND * 2);
+    etimer_set(&et, HTTP_POST_INTERVAL);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
     if (!http_post_enabled) {
@@ -349,47 +372,49 @@ PROCESS_THREAD(http_post_process, ev, data)
 
     snprintf(sensor_data, sizeof(sensor_data),
              "{"
-             "\"rssi\":%d,"
-             "\"p\":\"%s\","
-             "\"red\":%d,"
-             "\"green\":%d,"
-             "\"blue\":%d,"
-             "\"proximity\":%d,"
-             "\"pressure\":%d,"
-             "\"temperature\":%d,"
-             "\"humidity\":%d,"
-             "\"joystick\":\"%s\","
-             "\"wheel\":%d,"
-             "\"gyro_x\":%d,"
-             "\"gyro_y\":%d,"
-             "\"gyro_z\":%d,"
-             "\"acceleration_x\":%d,"
-             "\"acceleration_y\":%d,"
-             "\"acceleration_z\":%d,"
-             "\"compass_x\":%d,"
-             "\"compass_y\":%d,"
-             "\"compass_z\":%d"
+             "\"rssi\":%d"
+             ",\"p\":\"%s\""
+             ",\"red\":%d"
+             ",\"green\":%d"
+             ",\"blue\":%d"
+         #if 1
+             ",\"proximity\":%d"
+             ",\"pressure\":%d"
+             ",\"temperature\":%d"
+             ",\"humidity\":%d"
+             ",\"joystick\":\"%s\""
+             ",\"wheel\":%d"
+             ",\"gyro_x\":%d"
+             ",\"gyro_y\":%d"
+             ",\"gyro_z\":%d"
+             ",\"acceleration_x\":%d"
+             ",\"acceleration_y\":%d"
+             ",\"acceleration_z\":%d"
+             ",\"compass_x\":%d"
+             ",\"compass_y\":%d"
+             ",\"compass_z\":%d"
+         #endif
              "}",
-             rssi,
-             parent_addr,
-             (uint8_t)(red   * 255 / rgb_max),
-             (uint8_t)(green * 255 / rgb_max),
-             (uint8_t)(blue  * 255 / rgb_max),
-             rgbc_sensor.value         (TCS3772_PROX),
-             pressure_sensor.value     (BMP180_PRESSURE),
-             pressure_sensor.value     (BMP180_TEMPERATURE),
-             rh_sensor.value           (SI7020_HUMIDITY),
-             JOYSTICK_STATE_TO_STRING  (joystick_sensor.value(JOYSTICK_STATE)),
-             touch_wheel_sensor.value  (TOUCH_WHEEL_POSITION),
-             nineaxis_sensor.value     (LSM9DS1_GYRO_X),
-             nineaxis_sensor.value     (LSM9DS1_GYRO_Y),
-             nineaxis_sensor.value     (LSM9DS1_GYRO_Z),
-             nineaxis_sensor.value     (LSM9DS1_ACC_X),
-             nineaxis_sensor.value     (LSM9DS1_ACC_Y),
-             nineaxis_sensor.value     (LSM9DS1_ACC_Z),
-             nineaxis_sensor.value     (LSM9DS1_COMPASS_X),
-             nineaxis_sensor.value     (LSM9DS1_COMPASS_Y),
-             nineaxis_sensor.value     (LSM9DS1_COMPASS_Z)
+             rssi
+             ,parent_addr
+             ,(uint8_t)(red   * 255 / rgb_max)
+             ,(uint8_t)(green * 255 / rgb_max)
+             ,(uint8_t)(blue  * 255 / rgb_max)
+             ,rgbc_sensor.value         (TCS3772_PROX)
+             ,pressure_sensor.value     (BMP180_PRESSURE)
+             ,pressure_sensor.value     (BMP180_TEMPERATURE)
+             ,rh_sensor.value           (SI7020_HUMIDITY)
+             ,JOYSTICK_STATE_TO_STRING  (joystick_sensor.value(JOYSTICK_STATE))
+             ,touch_wheel_sensor.value  (TOUCH_WHEEL_POSITION)
+             ,nineaxis_sensor.value     (LSM9DS1_GYRO_X)
+             ,nineaxis_sensor.value     (LSM9DS1_GYRO_Y)
+             ,nineaxis_sensor.value     (LSM9DS1_GYRO_Z)
+             ,nineaxis_sensor.value     (LSM9DS1_ACC_X)
+             ,nineaxis_sensor.value     (LSM9DS1_ACC_Y)
+             ,nineaxis_sensor.value     (LSM9DS1_ACC_Z)
+             ,nineaxis_sensor.value     (LSM9DS1_COMPASS_X)
+             ,nineaxis_sensor.value     (LSM9DS1_COMPASS_Y)
+             ,nineaxis_sensor.value     (LSM9DS1_COMPASS_Z)
              );
 
     http_socket_post(&hs, server_url,
