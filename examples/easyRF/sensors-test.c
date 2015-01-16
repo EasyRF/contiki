@@ -44,7 +44,7 @@
 
 #define APPLICATION_JSON        "application/json"
 #define SERVER_URL              "http://192.168.1.36:9999/api/devices/"
-#define HTTP_POST_INTERVAL      (CLOCK_SECOND / 5)
+#define HTTP_POST_INTERVAL      (CLOCK_SECOND * 2)
 
 #define MS2TICKS(ms)            ((int)((uint32_t) CLOCK_SECOND * (ms) / 1000))
 #define TICKS2MS(ticks)         ((uint32_t)(ticks) * 1000 / CLOCK_SECOND)
@@ -264,6 +264,23 @@ PROCESS_THREAD(sensors_test_process, ev, data)
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
+static void
+rpl_route_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
+                   int numroutes)
+{
+  static uint8_t has_rpl_route = 0;
+
+  if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
+    if (!has_rpl_route) {
+      has_rpl_route = 1;
+      http_post_enabled = true;
+      INFO("Got first RPL route (num routes = %d)", numroutes);
+    } else {
+      INFO("Got RPL route (num routes = %d)", numroutes);
+    }
+  }
+}
+/*---------------------------------------------------------------------------*/
 void http_socket_callback(struct http_socket *s,
                           void *ptr,
                           http_socket_event_t ev,
@@ -290,23 +307,6 @@ void http_socket_callback(struct http_socket *s,
       } else {
         leds_off(LEDS_GREEN);
       }
-    }
-  }
-}
-/*---------------------------------------------------------------------------*/
-static void
-rpl_route_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
-                   int numroutes)
-{
-  static uint8_t has_rpl_route = 0;
-
-  if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
-    if (!has_rpl_route) {
-      has_rpl_route = 1;
-      http_post_enabled = true;
-      INFO("Got first RPL route (num routes = %d)", numroutes);
-    } else {
-      INFO("Got RPL route (num routes = %d)", numroutes);
     }
   }
 }
