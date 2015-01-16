@@ -68,6 +68,8 @@ static const int tx_power_dbm[SAMR21_MAX_TX_POWER_REG_VAL + 1] = {
 /* Use defines above and logic OR to enabled antenna diversity */
 #define SELECTED_ANTENNA  (ON_BOARD_ANTENNA)
 
+#define RX_BUFFER_CNT     8
+
 /*---------------------------------------------------------------------------*/
 
 typedef enum {
@@ -105,8 +107,10 @@ static volatile uint8_t trac_status;
 
 /* RX related */
 static bool phyRxState;
-static uint8_t rx_buffer[PACKETBUF_SIZE + 4];
-static volatile uint8_t rx_size;
+static volatile uint8_t rx_buffer_write_index;
+static volatile uint8_t rx_buffer_read_index;
+static uint8_t rx_buffer[RX_BUFFER_CNT][PACKETBUF_SIZE + 4];
+static volatile uint8_t rx_size[RX_BUFFER_CNT];
 static volatile uint8_t rx_lqi;
 static volatile int8_t rx_rssi;
 
@@ -178,17 +182,17 @@ receiving_packet(void)
   uint8_t status = trx_reg_read(TRX_STATUS_REG) & TRX_STATUS_MASK;
   /* Check if state is in one of the RX busy states */
   int res = (status == TRX_STATUS_BUSY_RX || status == TRX_STATUS_BUSY_RX_AACK);
-  if (res) WARN("receiving");
   return res;
 }
 /*---------------------------------------------------------------------------*/
 static int
 pending_packet(void)
 {
-  /* Check if a packet is in the rx_buffer */
-  int res = (rx_size > 0);
-  if (res) WARN("pending");
-  return res;
+  /* Check if a packet is in one of the rx_buffers */
+  return rx_buffer_read_index != rx_buffer_write_index;
+//  /* Check if a packet is in the rx_buffer */
+//  int res = (rx_size > 0);
+//  return res;
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -208,8 +212,10 @@ transmit(unsigned short transmit_len)
 {
   int tx_result;
 
-  /*TODO: wait for pending incoming packages or outgoing packages? */
-  while (receiving_packet());
+  /* Wait until receiving packets is finished */
+  while (receiving_packet()) {
+    TRACE("receiving packet");
+  }
 
   /* Go to TX ARET state */
   phyTrxSetState(TRX_CMD_TX_ARET_ON);
@@ -285,17 +291,23 @@ send(const void *payload, unsigned short payload_len)
 static int
 read(void *buf, unsigned short buf_len)
 {
+  /* Check if any buffer is in use */
+  if (rx_buffer_read_index == rx_buffer_write_index) {
+    /* No pending packet */
+    return 0;
+  }
+
   /* Save the number of received bytes */
-  uint8_t len = rx_size;
+  uint8_t len = rx_size[rx_buffer_read_index];
 
   /* Check if we actually received data */
   if (len > 0) {
-    /* Check available buffer space */
-    if (buf_len < len) {
-      rf_stats.rx_err_underflow++;
-      WARN("Packet does not fit buffer");
-      return 0;
-    }
+//    /* Check available buffer space */
+//    if (buf_len < len) {
+//      rf_stats.rx_err_underflow++;
+//      WARN("Packet does not fit buffer");
+//      return 0;
+//    }
 
     /* Log */
 #ifdef TOM_ENABLED
@@ -311,7 +323,7 @@ read(void *buf, unsigned short buf_len)
     packetbuf_set_datalen(len);
 
     /* Store data of the packet buffer */
-    memcpy(buf, rx_buffer + 1, len);
+    memcpy(buf, rx_buffer[rx_buffer_read_index] + 1, len);
 
     /* Store RSSI in dBm for the received packet */
     packetbuf_set_attr(PACKETBUF_ATTR_RSSI, rx_rssi);
@@ -320,7 +332,16 @@ read(void *buf, unsigned short buf_len)
     packetbuf_set_attr(PACKETBUF_ATTR_LINK_QUALITY, rx_lqi);
 
     /* Reset rx_size to indicate no packet is pending */
-    rx_size = 0;
+    rx_size[rx_buffer_read_index] = 0;
+  } /* len > 0 */
+
+  /* Increase read index */
+  rx_buffer_read_index = (rx_buffer_read_index + 1) % RX_BUFFER_CNT;
+
+  /* Check if there are more packets */
+  if (rx_buffer_read_index != rx_buffer_write_index) {
+    /* Poll the process */
+    process_poll(&samr21_rf_process);
   }
 
   /* Return the number of received bytes */
@@ -738,45 +759,53 @@ samr21_interrupt_handler(void)
      * When PHY state is IDLE it is RX
      */
     if (PHY_STATE_IDLE == phyState) {
-      /* Check if previous package is not pending */
-      if(rx_size) {
+
+      TRACE("rx_buffer_read_index: %d, rx_buffer_write_index: %d", rx_buffer_read_index, rx_buffer_write_index);
+
+      /* Check if all rx buffers are in use */
+      if (rx_buffer_write_index == ((rx_buffer_read_index + RX_BUFFER_CNT - 1) % RX_BUFFER_CNT)) {
         rf_stats.rx_err_underflow++;
+        WARN("RF underflow");
         return;
       }
 
       /* Read first byte from frame buffer which holds the PSDU size (data + 2 bytes CRC) */
       trx_frame_read(&size, 1);
 
-      if (size <= 127) {
+      if (size > 127) {
+        rf_stats.rx_err_len++;
+        WARN("RF length error");
+        return;
+      }
 
-        /* Read again from the frame buffer and this time read size + 4 bytes (length byte + (data + CRC) + LQI + ED + RX STATUS)
-         * Size is read again and LQI is included which is stored in the last byte */
-        trx_frame_read(rx_buffer, size + 4);
+      /* Read again from the frame buffer and this time read size + 4 bytes (length byte + (data + CRC) + LQI + ED + RX STATUS)
+       * Size is read again and LQI is included which is stored in the last byte */
+      trx_frame_read(rx_buffer[rx_buffer_write_index], size + 4);
 
-        /* Store LQI (Package Error Rate: 0=100% 50=97% 100=72% 128=50% 150=25% 200=3% 255=PER 0%) */
-        rx_lqi  = rx_buffer[size + 1];
+      /* Store LQI (Package Error Rate: 0=100% 50=97% 100=72% 128=50% 150=25% 200=3% 255=PER 0%) */
+      rx_lqi  = rx_buffer[rx_buffer_write_index][size + 1];
 
-        /* Read and convert ED level to obtain RSSI measurement result is between -94 and -11 dB (accuracy +-5dB)  */
-        rx_rssi = (int8_t)rx_buffer[size + 2] + RSSI_BASE_VAL;
+      /* Read and convert ED level to obtain RSSI measurement result is between -94 and -11 dB (accuracy +-5dB)  */
+      rx_rssi = (int8_t)rx_buffer[rx_buffer_write_index][size + 2] + RSSI_BASE_VAL;
 
-        /* Calculate size of the frame without CRC bytes */
-        rx_size = size - PHY_CRC_SIZE;
+      /* Calculate size of the frame without CRC bytes */
+      rx_size[rx_buffer_write_index] = size - PHY_CRC_SIZE;
 
 #ifdef TOM_ENABLED
-        /* Get TOM data. after 114 bytes of data the TOM data is corrupted by overlapping frame RAM space */
-        rx_tom.valid = size < 114;
+      /* Get TOM data. after 114 bytes of data the TOM data is corrupted by overlapping frame RAM space */
+      rx_tom.valid = size < 114;
 
-        /* Read TOM data from SRAM address 0x73 */
-        if (rx_tom.valid) {
-          trx_sram_read(0x7C, (uint8_t *)&rx_tom.fec, 1);
-        }
+      /* Read TOM data from SRAM address 0x73 */
+      if (rx_tom.valid) {
+        trx_sram_read(0x7C, (uint8_t *)&rx_tom.fec, 1);
+      }
 #endif
-        /* Poll the process */
-        process_poll(&samr21_rf_process);
-      }
-      else {
-        rf_stats.rx_err_len++;
-      }
+      /* Poll the process */
+      process_poll(&samr21_rf_process);
+
+      /* Increase write index */
+      rx_buffer_write_index = (rx_buffer_write_index + 1) % RX_BUFFER_CNT;
+
     } else if (PHY_STATE_TX_WAIT_END == phyState) {
       /* Interrupt was caused by a TX, read TX result */
       trac_status = (trx_reg_read(TRX_STATE_REG) >> TRAC_STATUS) & 7;
