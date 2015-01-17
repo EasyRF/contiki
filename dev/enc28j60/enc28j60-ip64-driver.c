@@ -98,11 +98,13 @@ output(uint8_t *packet, uint16_t len)
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(enc28j60_ip64_driver_process, ev, data)
 {
+  static struct etimer et;
   int len;
 
   PROCESS_BEGIN();
 
   while(1) {
+    etimer_set(&et, CLOCK_SECOND);
     PROCESS_WAIT_EVENT();
     len = enc28j60_read(ip64_packet_buffer, ip64_packet_buffer_maxlen);
     if(len > 0) {
