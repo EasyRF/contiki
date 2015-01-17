@@ -43,7 +43,7 @@
 
 
 #define APPLICATION_JSON        "application/json"
-#define SERVER_URL              "http://192.168.1.36:9999/api/devices/"
+#define SERVER_URL              "http://192.168.1.101:9999/api/devices/"
 #define HTTP_POST_INTERVAL      (CLOCK_SECOND * 2)
 
 #define MS2TICKS(ms)            ((int)((uint32_t) CLOCK_SECOND * (ms) / 1000))
@@ -167,6 +167,8 @@ handle_joystick_event(int joystick_state)
   if (new_page != current_page) {
     show_page(new_page);
   }
+
+  print_stack_info();
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(sensors_test_process, ev, data)
@@ -182,12 +184,12 @@ PROCESS_THREAD(sensors_test_process, ev, data)
 
   process_start(&sensors_process, NULL);
 
-  SENSORS_ACTIVATE(touch_wheel_sensor);
   SENSORS_ACTIVATE(joystick_sensor);
-  SENSORS_ACTIVATE(pressure_sensor);
-  SENSORS_ACTIVATE(rgbc_sensor);
-  SENSORS_ACTIVATE(rh_sensor);
-  SENSORS_ACTIVATE(nineaxis_sensor);
+//  SENSORS_ACTIVATE(touch_wheel_sensor);
+//  SENSORS_ACTIVATE(pressure_sensor);
+//  SENSORS_ACTIVATE(rgbc_sensor);
+//  SENSORS_ACTIVATE(rh_sensor);
+//  SENSORS_ACTIVATE(nineaxis_sensor);
 
   rgbc_sensor.configure(TCS3772_READ_INTERVAL,  MS2TICKS(TCS3772_CYCLE_MS) );
   pressure_sensor.configure(BMP180_READ_INTERVAL, CLOCK_SECOND / 2);
@@ -293,7 +295,11 @@ void http_socket_callback(struct http_socket *s,
 
   INFO("FINISH HTTP POST (status = %d, duration = %ld)", ev, TICKS2MS(http_post_stop_time - http_post_start_time));
 
-  http_post_in_progress = false;
+  if (ev == HTTP_SOCKET_CLOSED ||
+      ev == HTTP_SOCKET_TIMEDOUT ||
+      ev == HTTP_SOCKET_ABORTED) {
+    http_post_in_progress = false;
+  }
 
   if (ev == HTTP_SOCKET_DATA) {
     str = (char *)data;
