@@ -43,7 +43,8 @@
 
 
 #define APPLICATION_JSON        "application/json"
-#define SERVER_URL              "http://192.168.1.36:9999/api/devices/"
+//#define SERVER_URL              "http://192.168.1.36:9999/api/devices/"
+#define SERVER_URL              "http://188.166.32.187:8080/api/devices/"
 #define HTTP_POST_INTERVAL      (CLOCK_SECOND * 5)
 
 #define MS2TICKS(ms)            ((int)((uint32_t) CLOCK_SECOND * (ms) / 1000))
