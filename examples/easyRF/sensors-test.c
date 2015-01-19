@@ -43,8 +43,8 @@
 
 
 #define APPLICATION_JSON        "application/json"
-#define SERVER_URL              "http://192.168.1.101:9999/api/devices/"
-#define HTTP_POST_INTERVAL      (CLOCK_SECOND * 2)
+#define SERVER_URL              "http://192.168.1.36:9999/api/devices/"
+#define HTTP_POST_INTERVAL      (CLOCK_SECOND * 5)
 
 #define MS2TICKS(ms)            ((int)((uint32_t) CLOCK_SECOND * (ms) / 1000))
 #define TICKS2MS(ticks)         ((uint32_t)(ticks) * 1000 / CLOCK_SECOND)
@@ -69,6 +69,12 @@ static bool http_post_enabled;
 static bool http_post_in_progress;
 static clock_time_t http_post_start_time;
 
+static const uip_lladdr_t *lladdr;
+static const uip_ipaddr_t *parent;
+static rpl_dag_t *dag;
+static char global_addr[64];
+static char parent_addr[64];
+
 /*---------------------------------------------------------------------------*/
 static void input_packetsniffer(void);
 static void output_packetsniffer(int mac_status);
@@ -88,7 +94,7 @@ update_values(void)
     int temp_before_sep = temp / 10;
     int temp_after_sep  = temp - (temp_before_sep * 10);
 
-    snprintf(text_buffer, sizeof(text_buffer), "%d.%d.%d\n%d\n%s\n%d\n%d.%d\n%d",
+    snprintf(text_buffer, sizeof(text_buffer), "%d/%d/%d\n%d\n%s\n%d\n%d.%d\n%d",
               (int16_t)rgbc_sensor.value(TCS3772_RED),
               (int16_t)rgbc_sensor.value(TCS3772_GREEN),
               (int16_t)rgbc_sensor.value(TCS3772_BLUE),
@@ -98,7 +104,7 @@ update_values(void)
               temp_before_sep, temp_after_sep,
               rh_sensor.value(SI7020_HUMIDITY));
   } else if (current_page == SENSOR_PAGE_2) {
-    snprintf(text_buffer, sizeof(text_buffer), "%d.%d.%d\n%d.%d.%d\n%d.%d.%d",
+    snprintf(text_buffer, sizeof(text_buffer), "%d/%d/%d\n%d/%d/%d\n%d/%d/%d",
               (int16_t)nineaxis_sensor.value(LSM9DS1_GYRO_X),
               (int16_t)nineaxis_sensor.value(LSM9DS1_GYRO_Y),
               (int16_t)nineaxis_sensor.value(LSM9DS1_GYRO_Z),
@@ -109,8 +115,8 @@ update_values(void)
               (int16_t)nineaxis_sensor.value(LSM9DS1_COMPASS_Y),
               (int16_t)nineaxis_sensor.value(LSM9DS1_COMPASS_Z));
   } else if (current_page == NETWORK_PAGE) {
-    snprintf(text_buffer, sizeof(text_buffer), "%d\n%d",
-             rssi, lqi);
+    snprintf(text_buffer, sizeof(text_buffer), "%s\n%s\n%d\n%d",
+             global_addr, parent_addr, rssi, lqi);
   }
 
   canvas_textbox_draw_string_reset(&display_st7565s, &tb_values, text_font,
@@ -127,19 +133,19 @@ show_page(enum display_page page)
                                      "       Sensors 1");
 
     canvas_textbox_draw_string_reset(&display_st7565s, &tb_labels, text_font,
-                                     "Color:\nWheel:\nJoystick:\nPressure:\nTemp:\nHumidity:");
+                                     "Color:\nWheel:\nJoyst:\nPress:\nTemp:\nHumid:");
   } else if (current_page == SENSOR_PAGE_2) {
     canvas_textbox_draw_string_reset(&display_st7565s, &tb_header, header_font,
                                      "       Sensors 2");
 
     canvas_textbox_draw_string_reset(&display_st7565s, &tb_labels, text_font,
-                                     "Gyro:\nAccel:\nCompass:");
+                                     "Gyro:\nAccel:\nCmpas:");
   } else if (current_page == NETWORK_PAGE) {
     canvas_textbox_draw_string_reset(&display_st7565s, &tb_header, header_font,
                                      "        Network");
 
     canvas_textbox_draw_string_reset(&display_st7565s, &tb_labels, text_font,
-                                     "RSSI:\nLQI:");
+                                     "IP:\nParent:\nRSSI:\nLQI:");
   }
 
   update_values();
@@ -148,7 +154,7 @@ show_page(enum display_page page)
 static inline void
 handle_joystick_event(int joystick_state)
 {
-  enum display_page new_page = current_page;
+  int8_t new_page = current_page;
 
   if (joystick_state == JOYSTICK_LEFT) {
     new_page = current_page - 1;
@@ -171,13 +177,55 @@ handle_joystick_event(int joystick_state)
   print_stack_info();
 }
 /*---------------------------------------------------------------------------*/
+static void
+rpl_route_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
+                   int numroutes)
+{
+  static uint8_t has_rpl_route = 0;
+
+  if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
+    if (!has_rpl_route) {
+      has_rpl_route = 1;
+      process_start(&http_post_process, 0);
+      INFO("Got first RPL route (num routes = %d)", numroutes);
+    } else {
+      INFO("Got RPL route (num routes = %d)", numroutes);
+    }
+
+    dag = rpl_get_any_dag();
+    parent = simple_rpl_parent();
+
+    if (parent != NULL && dag != NULL) {
+      lladdr = uip_ds6_nbr_lladdr_from_ipaddr(parent);
+
+      snprintf(parent_addr, sizeof(parent_addr),
+               "%04x:%04x:%04x:%04x",
+               uip_htons(parent->u16[4]), uip_htons(parent->u16[5]),
+               uip_htons(parent->u16[6]), uip_htons(parent->u16[7]));
+    }
+  }
+}
+/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(sensors_test_process, ev, data)
 {
+  static struct uip_ds6_notification n;
   static struct etimer et;
+  uip_ds6_addr_t *ds6addr;
 
   PROCESS_BEGIN();
 
   INFO("Sensors-test started");
+
+  uip_ds6_notification_add(&n, rpl_route_callback);
+
+  ds6addr = uip_ds6_get_global(ADDR_PREFERRED);
+
+  snprintf(global_addr, sizeof(global_addr),
+           "%04x:%04x:%04x:%04x",
+           uip_htons(ds6addr->ipaddr.u16[4]), uip_htons(ds6addr->ipaddr.u16[5]),
+           uip_htons(ds6addr->ipaddr.u16[6]), uip_htons(ds6addr->ipaddr.u16[7]));
+
+  memset(parent_addr, 0, sizeof(parent_addr));
 
   /* Add sniffer on received packets to extract the RSSI value */
   rime_sniffer_add(&packetsniff);
@@ -185,11 +233,11 @@ PROCESS_THREAD(sensors_test_process, ev, data)
   process_start(&sensors_process, NULL);
 
   SENSORS_ACTIVATE(joystick_sensor);
-//  SENSORS_ACTIVATE(touch_wheel_sensor);
-//  SENSORS_ACTIVATE(pressure_sensor);
-//  SENSORS_ACTIVATE(rgbc_sensor);
-//  SENSORS_ACTIVATE(rh_sensor);
-//  SENSORS_ACTIVATE(nineaxis_sensor);
+  SENSORS_ACTIVATE(touch_wheel_sensor);
+  SENSORS_ACTIVATE(pressure_sensor);
+  SENSORS_ACTIVATE(rgbc_sensor);
+  SENSORS_ACTIVATE(rh_sensor);
+  SENSORS_ACTIVATE(nineaxis_sensor);
 
   rgbc_sensor.configure(TCS3772_READ_INTERVAL,  MS2TICKS(TCS3772_CYCLE_MS) );
   pressure_sensor.configure(BMP180_READ_INTERVAL, CLOCK_SECOND / 2);
@@ -213,13 +261,13 @@ PROCESS_THREAD(sensors_test_process, ev, data)
   struct canvas_rectangle header_line_rect = { 0, 11, 128, 2 };
 
   /* Initialize textbox for labels */
-  canvas_textbox_init(&tb_labels, 0, 50, 15, 64 - 15,
+  canvas_textbox_init(&tb_labels, 0, 32, 15, 64 - 15,
                       DISPLAY_COLOR_BLACK,
                       DISPLAY_COLOR_WHITE,
                       DISPLAY_COLOR_WHITE);
 
   /* Initialize textbox for values */
-  canvas_textbox_init(&tb_values, 52, 128 - 52, 15, 64 - 15,
+  canvas_textbox_init(&tb_values, 34, 128 - 34, 15, 64 - 15,
                       DISPLAY_COLOR_BLACK,
                       DISPLAY_COLOR_WHITE,
                       DISPLAY_COLOR_WHITE);
@@ -233,8 +281,8 @@ PROCESS_THREAD(sensors_test_process, ev, data)
                   DISPLAY_COLOR_BLACK, DISPLAY_COLOR_WHITE);
 
   /* Wait 5 seconds for showing splash screen */
-//  etimer_set(&et, CLOCK_SECOND * 5);
-//  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  etimer_set(&et, CLOCK_SECOND * 5);
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
   /* Clear screen */
   display_st7565s.clear();
@@ -244,7 +292,7 @@ PROCESS_THREAD(sensors_test_process, ev, data)
                    DISPLAY_COLOR_BLACK, DISPLAY_COLOR_BLACK);
 
   /* Show sensor page at first */
-  show_page(SENSOR_PAGE_1);
+  show_page(NETWORK_PAGE);
 
   while (1) {
 
@@ -264,23 +312,6 @@ PROCESS_THREAD(sensors_test_process, ev, data)
   }
 
   PROCESS_END();
-}
-/*---------------------------------------------------------------------------*/
-static void
-rpl_route_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
-                   int numroutes)
-{
-  static uint8_t has_rpl_route = 0;
-
-  if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
-    if (!has_rpl_route) {
-      has_rpl_route = 1;
-      http_post_enabled = true;
-      INFO("Got first RPL route (num routes = %d)", numroutes);
-    } else {
-      INFO("Got RPL route (num routes = %d)", numroutes);
-    }
-  }
 }
 /*---------------------------------------------------------------------------*/
 void http_socket_callback(struct http_socket *s,
@@ -306,6 +337,8 @@ void http_socket_callback(struct http_socket *s,
     str[datalen] = '\0';
 //    INFO("Response from the server: '%s'\n", str);
 
+    tcp_socket_close(&s->s);
+
     if (datalen > 0) {
       char ledState = str[datalen - 1];
       if (ledState == '1') {
@@ -319,33 +352,18 @@ void http_socket_callback(struct http_socket *s,
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(http_post_process, ev, data)
 {
-  static struct uip_ds6_notification n;
   static struct etimer et;
   static struct http_socket hs;
   static char sensor_data[512];
-
-  static char parent_addr[64];
   static char server_url[128];
 
-  uip_ds6_addr_t *ds6addr;
-  const uip_ipaddr_t *parent;
-  rpl_dag_t *dag;
-
   PROCESS_BEGIN();
-
-  uip_ds6_notification_add(&n, rpl_route_callback);
 
   http_post_enabled = false;
   http_post_in_progress = false;
 
-  ds6addr = uip_ds6_get_global(ADDR_PREFERRED);
   snprintf(server_url, sizeof(server_url),
-           "%s%02x%02x:%02x%02x:%02x%02x:%02x%02x",
-           SERVER_URL,
-           ds6addr->ipaddr.u8[8], ds6addr->ipaddr.u8[9],
-           ds6addr->ipaddr.u8[10], ds6addr->ipaddr.u8[11],
-           ds6addr->ipaddr.u8[12], ds6addr->ipaddr.u8[13],
-           ds6addr->ipaddr.u8[14], ds6addr->ipaddr.u8[15]);
+           "%s%s", SERVER_URL, global_addr);
 
   while (1) {
     etimer_set(&et, HTTP_POST_INTERVAL);
@@ -357,17 +375,6 @@ PROCESS_THREAD(http_post_process, ev, data)
 
     if (http_post_in_progress) {
       continue;
-    }
-
-    dag = rpl_get_any_dag();
-    parent = simple_rpl_parent();
-    if (parent != NULL && dag != NULL) {
-      snprintf(parent_addr, sizeof(parent_addr),
-               "%04x:%04x:%04x:%04x",
-               uip_htons(parent->u16[4]), uip_htons(parent->u16[5]),
-               uip_htons(parent->u16[6]), uip_htons(parent->u16[7]));
-    } else {
-      memset(parent_addr, 0, sizeof(parent_addr));
     }
 
     uint32_t red   = rgbc_sensor.value(TCS3772_RED);
@@ -383,7 +390,6 @@ PROCESS_THREAD(http_post_process, ev, data)
              ",\"red\":%d"
              ",\"green\":%d"
              ",\"blue\":%d"
-         #if 1
              ",\"proximity\":%d"
              ",\"pressure\":%d"
              ",\"temperature\":%d"
@@ -399,7 +405,6 @@ PROCESS_THREAD(http_post_process, ev, data)
              ",\"compass_x\":%d"
              ",\"compass_y\":%d"
              ",\"compass_z\":%d"
-         #endif
              "}",
              rssi
              ,parent_addr
@@ -425,7 +430,7 @@ PROCESS_THREAD(http_post_process, ev, data)
 
     http_socket_post(&hs, server_url,
                      (const uint8_t *)sensor_data, strlen((const char *)sensor_data),
-                     APPLICATION_JSON, http_socket_callback, 0);
+                     APPLICATION_JSON, HTTP_CONNECTION_KEEPALIVE, http_socket_callback, 0);
 
     http_post_start_time = clock_time();
 
@@ -440,12 +445,7 @@ PROCESS_THREAD(http_post_process, ev, data)
 static void
 input_packetsniffer(void)
 {
-  const uip_ipaddr_t *parent;
-  const uip_lladdr_t *lladdr;
-
-  parent = simple_rpl_parent();
   if(parent != NULL) {
-    lladdr = uip_ds6_nbr_lladdr_from_ipaddr(parent);
     if(lladdr != NULL && linkaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_SENDER),
                                       (linkaddr_t *)lladdr)) {
       rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
