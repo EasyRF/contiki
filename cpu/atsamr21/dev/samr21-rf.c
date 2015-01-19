@@ -205,7 +205,6 @@ transmit(unsigned short transmit_len)
 
   /* Wait until receiving packets is finished */
   while (receiving_packet()) {
-//    clock_wait(random_rand() % 20);
     TRACE("receiving packet");
   }
 
@@ -274,7 +273,7 @@ transmit(unsigned short transmit_len)
     }
   }
 
-  INFO("transmit result: %d, length: %d, time [usec]: %ld",
+  TRACE("transmit result: %d, length: %d, time [usec]: %ld",
         tx_result, transmit_len, duration * 1000000 / RTIMER_ARCH_SECOND);
 
   return tx_result;
@@ -313,7 +312,7 @@ read(void *buf, unsigned short buf_len)
     TRACE("received: %d bytes, rssi: %d, lqi: %d, TOM %d (FEC %d TIM %ld)",
           len, rssi, lqi, rx_tom.valid, rx_tom.fec, (long)rx_tom.tim);
 #else
-    INFO("received: %d bytes, rssi: %d, lqi: %d", len, rssi, lqi);
+    TRACE("received: %d bytes, rssi: %d, lqi: %d", len, rssi, lqi);
 #endif
 
     rf_stats.rx_cnt++;
