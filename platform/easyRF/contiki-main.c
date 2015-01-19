@@ -122,8 +122,8 @@ main(void)
 
   process_init();
 
-//  watchdog_init();
-//  watchdog_start();
+  watchdog_init();
+  watchdog_start();
 
   rtimer_init();
 
