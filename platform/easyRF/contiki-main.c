@@ -91,22 +91,6 @@ set_rf_params(void)
   NETSTACK_RADIO.set_object(RADIO_PARAM_64BIT_ADDR, ext_addr, 8);
 }
 /*---------------------------------------------------------------------------*/
-static void
-rpl_route_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
-                   int numroutes)
-{
-  static uint8_t has_rpl_route = 0;
-
-  if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
-    if (!has_rpl_route) {
-      has_rpl_route = 1;
-      INFO("Got first RPL route (num routes = %d)", numroutes);
-    } else {
-      INFO("Got RPL route (num routes = %d)", numroutes);
-    }
-  }
-}
-/*---------------------------------------------------------------------------*/
 void dhcp_callback(uint8_t configured)
 {
   if (configured) {
@@ -118,8 +102,6 @@ void dhcp_callback(uint8_t configured)
 int
 main(void)
 {
-  static struct uip_ds6_notification n;
-
   write_aa_to_stack();
 
   clock_init();
@@ -164,7 +146,6 @@ main(void)
   memcpy(&uip_lladdr.addr, &linkaddr_node_addr, sizeof(uip_lladdr.addr));
   queuebuf_init();
   process_start(&tcpip_process, NULL);
-  uip_ds6_notification_add(&n, rpl_route_callback);
   simple_rpl_init();
   if (ip64_init() == 0) {
     INFO("Ethernet interface found");
