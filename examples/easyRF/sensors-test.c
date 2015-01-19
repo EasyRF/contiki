@@ -84,7 +84,7 @@ RIME_SNIFFER(packetsniff, input_packetsniffer, output_packetsniffer);
 /*---------------------------------------------------------------------------*/
 PROCESS(sensors_test_process, "Sensors-test process");
 PROCESS(http_post_process, "HTTP POST Process");
-AUTOSTART_PROCESSES(&sensors_test_process, &http_post_process);
+AUTOSTART_PROCESSES(&sensors_test_process);
 /*---------------------------------------------------------------------------*/
 static void
 update_values(void)
@@ -183,15 +183,7 @@ rpl_route_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
 {
   static uint8_t has_rpl_route = 0;
 
-  if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
-    if (!has_rpl_route) {
-      has_rpl_route = 1;
-      process_start(&http_post_process, 0);
-      INFO("Got first RPL route (num routes = %d)", numroutes);
-    } else {
-      INFO("Got RPL route (num routes = %d)", numroutes);
-    }
-
+  if (event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
     dag = rpl_get_any_dag();
     parent = simple_rpl_parent();
 
@@ -202,6 +194,13 @@ rpl_route_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
                "%04x:%04x:%04x:%04x",
                uip_htons(parent->u16[4]), uip_htons(parent->u16[5]),
                uip_htons(parent->u16[6]), uip_htons(parent->u16[7]));
+    }
+
+    if (!has_rpl_route) {
+      has_rpl_route = 1;
+      INFO("Got first RPL route (num routes = %d)", numroutes);
+    } else {
+      INFO("Got RPL route (num routes = %d)", numroutes);
     }
   }
 }
@@ -227,9 +226,10 @@ PROCESS_THREAD(sensors_test_process, ev, data)
 
   memset(parent_addr, 0, sizeof(parent_addr));
 
-  /* Add sniffer on received packets to extract the RSSI value */
+  /* Add callback on received packets to extract the RSSI value */
   rime_sniffer_add(&packetsniff);
 
+  process_start(&http_post_process, NULL);
   process_start(&sensors_process, NULL);
 
   SENSORS_ACTIVATE(joystick_sensor);
@@ -359,7 +359,7 @@ PROCESS_THREAD(http_post_process, ev, data)
 
   PROCESS_BEGIN();
 
-  http_post_enabled = false;
+  http_post_enabled = true;
   http_post_in_progress = false;
 
   snprintf(server_url, sizeof(server_url),
