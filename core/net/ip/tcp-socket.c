@@ -348,6 +348,9 @@ tcp_socket_close(struct tcp_socket *s)
   }
 
   s->flags |= TCP_SOCKET_FLAGS_CLOSING;
+
+  tcpip_poll_tcp(s->c);
+
   return 1;
 }
 /*---------------------------------------------------------------------------*/
