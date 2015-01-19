@@ -42,7 +42,7 @@
 /* Enables RF test code */
 //#define MEASURE_RF_CLOCK
 //#define TOM_ENABLED
-#define PRINT_RF_STATS
+//#define PRINT_RF_STATS
 //#define CRYSTAL_ADJUST
 
 /* Disable TRACE logging */
