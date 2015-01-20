@@ -111,7 +111,6 @@ main(void)
   display_st7565s.init();
 
   dbg_init();
-
 #if DBG_CONF_USB == 1
   clock_wait(CLOCK_SECOND * 1);
 #endif
@@ -124,14 +123,15 @@ main(void)
 
   watchdog_init();
   watchdog_start();
+  watchdog_periodic();
 
   rtimer_init();
 
   INFO(CONTIKI_VERSION_STRING);
   INFO(BOARD_NAME);
-  INFO(" Net: %s", NETSTACK_NETWORK.name);
-  INFO(" MAC: %s", NETSTACK_MAC.name);
-  INFO(" RDC: %s", NETSTACK_RDC.name);
+  INFO("Net: %s", NETSTACK_NETWORK.name);
+  INFO("MAC: %s", NETSTACK_MAC.name);
+  INFO("RDC: %s", NETSTACK_RDC.name);
 
   process_start(&etimer_process, NULL);
   ctimer_init();
@@ -141,6 +141,8 @@ main(void)
 
   /* Use RF transceiver RNG, so call random_init after netstack_init */
   random_init(0);
+
+  watchdog_periodic();
 
 #if UIP_CONF_IPV6
   memcpy(&uip_lladdr.addr, &linkaddr_node_addr, sizeof(uip_lladdr.addr));
@@ -156,6 +158,8 @@ main(void)
 
   energest_init();
   ENERGEST_ON(ENERGEST_TYPE_CPU);
+
+  watchdog_periodic();
 
   autostart_start(autostart_processes);
 
