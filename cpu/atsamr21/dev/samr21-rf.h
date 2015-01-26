@@ -40,6 +40,8 @@
 #define SAMR21_RF_CCA_CLEAR               1
 #define SAMR21_RF_CCA_BUSY                0
 #define SAMR21_CCA_CHANNEL_MASK           0x1f
+#define SAMR21_RF_CRYSTAL_CAP_TRIM_MIN    0
+#define SAMR21_RF_CRYSTAL_CAP_TRIM_MAX    0x0f
 /*---------------------------------------------------------------------------*/
 #ifdef SAMR21_RF_CONF_TX_POWER
 #define SAMR21_RF_TX_POWER SAMR21_RF_CONF_TX_POWER
@@ -63,6 +65,12 @@
 #define SAMR21_RF_AUTOACK SAMR21_RF_CONF_AUTOACK
 #else
 #define SAMR21_RF_AUTOACK 1
+#endif /* SAMR21_RF_CONF_AUTOACK */
+
+#ifdef SAMR21_RF_CONF_CRYSTAL_CAP_TRIM_DEFAULT
+#define SAMR21_RF_CRYSTAL_CAP_TRIM_DEFAULT SAMR21_RF_CONF_CRYSTAL_CAP_TRIM_DEFAULT
+#else
+#define SAMR21_RF_CRYSTAL_CAP_TRIM_DEFAULT 0
 #endif /* SAMR21_RF_CONF_AUTOACK */
 /*---------------------------------------------------------------------------*/
 /** The NETSTACK data structure for the SAMR21 RF driver */

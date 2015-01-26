@@ -30,20 +30,20 @@
 
 
 /* Reference voltage (mV) */
-#define ADC_REF_VOLTAGE     1650
+#define ADC_REF_VOLTAGE     2230
 #define ADC_MAX_VALUE       4095
 
 /* Voltage (mV) for all joystick states/positions */
-#define IDLE_VOLTAGE        1000
-#define UP_VOLTAGE          804
-#define RIGHT_VOLTAGE       761
-#define DOWN_VOLTAGE        610
-#define LEFT_VOLTAGE        896
-#define BUTTON_VOLTAGE      0
+#define IDLE_VOLTAGE        10
+#define UP_VOLTAGE          1101
+#define RIGHT_VOLTAGE       925
+#define DOWN_VOLTAGE        1652
+#define LEFT_VOLTAGE        537
+#define BUTTON_VOLTAGE      2230
 
 /* Compare macros */
 #define VOLTAGE_MARGIN        25
-#define VAL_EQUALS_POS(i,r)   (abs(i - r) < VOLTAGE_MARGIN)
+#define VAL_EQUALS_POS(i,r)   (abs((int16_t)(i) - (int16_t)(r)) < VOLTAGE_MARGIN)
 #define UP(v)                 VAL_EQUALS_POS(v, UP_VOLTAGE)
 #define RIGHT(v)              VAL_EQUALS_POS(v, RIGHT_VOLTAGE)
 #define DOWN(v)               VAL_EQUALS_POS(v, DOWN_VOLTAGE)
@@ -102,7 +102,7 @@ update(void)
 
   if (new_state != joystick_state) {
     joystick_state = new_state;
-    TRACE("new joystick state: %d", joystick_state);
+    TRACE("new joystick state: %d (%d)", joystick_state, voltage);
     sensors_changed(&joystick_sensor);
   }
 
@@ -112,11 +112,11 @@ update(void)
 static void
 configure_adc(void)
 {
-  /* Initialize ADC using PIN_PB02 with 1500 mV reference */
+  /* Initialize ADC using PIN_PB02 with 2230 mV reference */
   struct adc_config config_adc;
   adc_get_config_defaults(&config_adc);
   config_adc.positive_input = ADC_POSITIVE_INPUT_PIN10;
-  config_adc.reference = ADC_REFERENCE_INTVCC1;
+  config_adc.reference = ADC_REFERENCE_INTVCC0;
   config_adc.clock_prescaler = ADC_CLOCK_PRESCALER_DIV512;
   adc_init(&adc_instance, ADC, &config_adc);
 
@@ -162,11 +162,12 @@ configure(int type, int value)
     if (value) {
       adc_enable(&adc_instance);
       process_start(&joystick_process, 0);
-      sensor_active = 1;
+      sensor_active = true;
+      sensors_changed(&joystick_sensor);
     } else {
       adc_disable(&adc_instance);
       process_exit(&joystick_process);
-      sensor_active = 0;
+      sensor_active = false;
     }
     return 1;
   case JOYSTICK_READ_INTERVAL:

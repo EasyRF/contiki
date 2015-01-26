@@ -44,7 +44,7 @@
 #define DEF_SELFCAP_QUICK_REBURST_ENABLE    1u
 
 /* Flag indicating if aquisition is active */
-bool sensor_active;
+static bool sensor_active;
 
 /* ! QTouch Library Timing info. */
 touch_time_t touch_time;
@@ -56,13 +56,13 @@ touch_measure_data_t *p_selfcap_measure_data = NULL;
 static uint8_t selfcap_data_blk[PRIV_SELFCAP_DATA_BLK_SIZE];
 
 /* Self Cap sensors Pins Info */
-uint16_t selfcap_y_nodes[DEF_SELFCAP_NUM_CHANNELS] = {DEF_SELFCAP_LINES};
+static uint16_t selfcap_y_nodes[DEF_SELFCAP_NUM_CHANNELS] = {DEF_SELFCAP_LINES};
 
 /* Self Cap gain per touch channel */
-gain_t selfcap_gain_per_node[DEF_SELFCAP_NUM_CHANNELS] = {DEF_SELFCAP_GAIN_PER_NODE};
+static gain_t selfcap_gain_per_node[DEF_SELFCAP_NUM_CHANNELS] = {DEF_SELFCAP_GAIN_PER_NODE};
 
 /* PTC acquisition frequency delay setting */
-freq_hop_sel_t selfcap_freq_hops[3u] = {DEF_SELFCAP_HOP_FREQS};
+static freq_hop_sel_t selfcap_freq_hops[3u] = {DEF_SELFCAP_HOP_FREQS};
 
 
 /* Self Cap Configuration structure provided as input to Touch Library. */
@@ -286,6 +286,7 @@ configure(int type, int value)
     if (value) {
       tc_enable(&tc_instance);
       sensor_active = true;
+      sensors_changed(&touch_wheel_sensor);
     } else {
       tc_disable(&tc_instance);
       sensor_active = false;

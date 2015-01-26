@@ -24,10 +24,36 @@
 #ifndef CONF_BOARD_H
 #define CONF_BOARD_H
 
-/* Most settings are defined in user_board.h */
+/* MOST CPU Peripheral settings are defined in user_board.h */
 
-#define RF_CAP_TRIM                      0x0F
+/*** RF chip ***/
 
-#define AT86RFX_SPI_BAUDRATE		 5000000UL
+/* Trim capacitance for Crystal tuning */
+#define SAMR21_RF_CONF_CRYSTAL_CAP_TRIM_DEFAULT   0xf
+
+/* SPI speed to RF chip */
+#define AT86RFX_SPI_BAUDRATE             5000000UL
+
+
+/*** Light/Color/Proximity Sensor settings ***/
+
+/* Filter sensor values */
+#define RGBCP_FILTER_ENABLE      1
+/* High value means less noise and slower detection */
+#define RGBCP_FILTER_FACTOR      5
+/* Nr. of proximity pulses generated (0..255) */
+#define PROX_PULSES              20
+/* Integration time of proximity sensor in steps of 2.4ms (1..256) */
+#define PROX_INTEGRATION_TIME    5
+/* Proximity LED Drive Strength (0=100mA, 1=50mA, 2=25mA, 3=12.5mA) */
+#define PROX_LED_DRIVE_STRENGTH  0
+/* RGBC Gain Control (0=1x, 1=4x, 2=16x, 3=64x) */
+#define RGBC_GAIN                2
+/* Integration time of RGBC sensor in steps of 2.4ms (1..256) */
+#define RGBC_INTEGRATION_TIME    5
+/* Approximated cylce time */
+#define TCS3772_CYCLE_MS         ((uint16_t)((RGBC_INTEGRATION_TIME+PROX_INTEGRATION_TIME+1)*2.4))
+
+
 
 #endif // CONF_BOARD_H

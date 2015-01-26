@@ -27,27 +27,23 @@
 #include "sys/energest.h"
 #include "sys/rtimer.h"
 #include "dev/leds.h"
-
+#include "log.h"
 
 //#define TEST_RTC_COUNTER
 
 
 static struct rtc_module rtc_instance;
 
-
 /*---------------------------------------------------------------------------*/
 #ifdef TEST_RTC_COUNTER
-void rtc_overflow_callback(void)
+static void
+rtc_overflow_callback(void)
 {
-  ENERGEST_ON(ENERGEST_TYPE_IRQ);
-
-  leds_toggle(LED1_GREEN);
-
-  ENERGEST_OFF(ENERGEST_TYPE_IRQ);
+  leds_toggle(LEDS_GREEN);
 }
 #endif
 /*---------------------------------------------------------------------------*/
-void
+static void
 rtc_compare_callback(void)
 {
   ENERGEST_ON(ENERGEST_TYPE_IRQ);
@@ -67,26 +63,30 @@ rtimer_arch_init(void)
   /* Configure RTC in counter mode */
   rtc_count_get_config_defaults(&config_rtc_count);
   config_rtc_count.prescaler           = RTC_COUNT_PRESCALER_DIV_1;
+#ifdef TEST_RTC_COUNTER
+  config_rtc_count.mode                = RTC_COUNT_MODE_16BIT;
+#else
   config_rtc_count.mode                = RTC_COUNT_MODE_32BIT;
+#endif
   config_rtc_count.continuously_update = true;
   rtc_count_init(&rtc_instance, RTC, &config_rtc_count);
 
   /* Enable RTC */
   rtc_count_enable(&rtc_instance);
 
-//  rtc_count_set_period(&rtc_instance, 0xFFFF);
-
 #ifdef TEST_RTC_COUNTER
   /* Overflow callback and reload value */
   rtc_count_register_callback(
         &rtc_instance, rtc_overflow_callback, RTC_COUNT_CALLBACK_OVERFLOW);
   rtc_count_enable_callback(&rtc_instance, RTC_COUNT_CALLBACK_OVERFLOW);
-  rtc_count_set_period(&rtc_instance, 2000);
+  rtc_count_set_period(&rtc_instance, 100);
 #endif
 
   /* Compare callback */
   rtc_count_register_callback(
         &rtc_instance, rtc_compare_callback, RTC_COUNT_CALLBACK_COMPARE_0);
+
+  INFO("RTIMER initialized");
 }
 /*---------------------------------------------------------------------------*/
 rtimer_clock_t

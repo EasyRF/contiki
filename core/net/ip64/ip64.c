@@ -173,21 +173,24 @@ static uip_ip4addr_t ipv4_broadcast_addr;
 #define TCP_RST 0x04
 
 /*---------------------------------------------------------------------------*/
-void
+int
 ip64_init(void)
 {
-  int i;
+  int result, i;
   uint8_t state;
 
   uip_ipaddr(&ipv4_broadcast_addr, 255,255,255,255);
   ip64_hostaddr_configured = 0;
 
   PRINTF("ip64_init\n");
-  IP64_ETH_DRIVER.init();
+  result = IP64_ETH_DRIVER.init();
+  if (result != 0) {
+    return result;
+  }
+
 #if IP64_CONF_DHCP
   ip64_ipv4_dhcp_init();
 #else
-
   uip_ip4addr_t ipaddr, netmask, default_router;
   uip_ipaddr(&ipaddr, 10, 0, 0, 100);
   uip_ipaddr(&netmask, 255, 255, 255, 0);
@@ -210,6 +213,7 @@ ip64_init(void)
     }
   }
 
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
 void

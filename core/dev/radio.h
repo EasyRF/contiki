@@ -159,6 +159,8 @@ enum {
    */
   RADIO_PARAM_64BIT_ADDR,
 
+  RADIO_PARAM_CRYSTAL_CAP_TRIM,
+
   /* Constants (read only) */
 
   /* The lowest radio channel. */

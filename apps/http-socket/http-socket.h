@@ -46,6 +46,11 @@ typedef enum {
   HTTP_SOCKET_HOSTNAME_NOT_FOUND,
 } http_socket_event_t;
 
+typedef enum {
+  HTTP_CONNECTION_CLOSE,
+  HTTP_CONNECTION_KEEPALIVE
+} http_socket_connection_t;
+
 typedef void (* http_socket_callback_t)(struct http_socket *s,
                                         void *ptr,
                                         http_socket_event_t ev,
@@ -84,10 +89,13 @@ struct http_socket {
 
   struct pt pt, headerpt;
   uint8_t header_received;
+
+  http_socket_connection_t connection_policy;
 };
 
 
 int http_socket_get(struct http_socket *s, const char *url,
+                     http_socket_connection_t connection,
                      http_socket_callback_t callback,
                      void *callbackptr);
 
@@ -95,6 +103,7 @@ int http_socket_post(struct http_socket *s, const char *url,
                       const uint8_t *postdata,
                       uint16_t postdatalen,
                       const char *content_type,
+                      http_socket_connection_t connection,
                       http_socket_callback_t callback,
                       void *callbackptr);
 

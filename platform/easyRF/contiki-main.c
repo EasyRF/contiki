@@ -33,6 +33,7 @@
 #include "dev/sensor_si7020.h"
 #include "dev/sensor_joystick.h"
 #include "dev/sensor_qtouch_wheel.h"
+#include "dev/sensor_lsm9ds1.h"
 #include "dev/display_st7565s.h"
 #include "flash.h"
 #include "cfs-coffee.h"
@@ -48,9 +49,10 @@
 #include "log.h"
 #include "dbg-arch.h"
 #include "samr21-rf.h"
+#include "stack_test.h"
 
 
-SENSORS(&pressure_sensor, &rgbc_sensor, &rh_sensor, &touch_wheel_sensor, &joystick_sensor);
+SENSORS(&pressure_sensor, &rgbc_sensor, &rh_sensor, &touch_wheel_sensor, &joystick_sensor, &nineaxis_sensor);
 
 
 /*---------------------------------------------------------------------------*/
@@ -89,22 +91,6 @@ set_rf_params(void)
   NETSTACK_RADIO.set_object(RADIO_PARAM_64BIT_ADDR, ext_addr, 8);
 }
 /*---------------------------------------------------------------------------*/
-static void
-rpl_route_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
-                   int numroutes)
-{
-  static uint8_t has_rpl_route = 0;
-
-  if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
-    if (!has_rpl_route) {
-      has_rpl_route = 1;
-      INFO("Got first RPL route (num routes = %d)", numroutes);
-    } else {
-      INFO("Got RPL route (num routes = %d)", numroutes);
-    }
-  }
-}
-/*---------------------------------------------------------------------------*/
 void dhcp_callback(uint8_t configured)
 {
   if (configured) {
@@ -116,31 +102,36 @@ void dhcp_callback(uint8_t configured)
 int
 main(void)
 {
-  static struct uip_ds6_notification n;
+  write_aa_to_stack();
 
   clock_init();
 
   leds_init();
-  leds_off(LEDS_WHITE);
-  leds_on(LEDS_GREEN);
+  leds_off(LEDS_ALL);
   display_st7565s.init();
 
   dbg_init();
+#if DBG_CONF_USB == 1
+  clock_wait(CLOCK_SECOND * 1);
+#endif
 
   INFO("Main CPU clock: %ld", system_cpu_clock_get_hz());
 
+  print_stack_info();
+
   process_init();
 
-//  watchdog_init();
-//  watchdog_start();
+  watchdog_init();
+  watchdog_start();
+  watchdog_periodic();
 
   rtimer_init();
 
   INFO(CONTIKI_VERSION_STRING);
   INFO(BOARD_NAME);
-  INFO(" Net: %s", NETSTACK_NETWORK.name);
-  INFO(" MAC: %s", NETSTACK_MAC.name);
-  INFO(" RDC: %s", NETSTACK_RDC.name);
+  INFO("Net: %s", NETSTACK_NETWORK.name);
+  INFO("MAC: %s", NETSTACK_MAC.name);
+  INFO("RDC: %s", NETSTACK_RDC.name);
 
   process_start(&etimer_process, NULL);
   ctimer_init();
@@ -151,17 +142,24 @@ main(void)
   /* Use RF transceiver RNG, so call random_init after netstack_init */
   random_init(0);
 
+  watchdog_periodic();
+
 #if UIP_CONF_IPV6
   memcpy(&uip_lladdr.addr, &linkaddr_node_addr, sizeof(uip_lladdr.addr));
   queuebuf_init();
   process_start(&tcpip_process, NULL);
-  uip_ds6_notification_add(&n, rpl_route_callback);
   simple_rpl_init();
-  ip64_init();
+  if (ip64_init() == 0) {
+    INFO("Ethernet interface found");
+  } else {
+    INFO("NO ethernet interface found");
+  }
 #endif /* UIP_CONF_IPV6 */
 
   energest_init();
   ENERGEST_ON(ENERGEST_TYPE_CPU);
+
+  watchdog_periodic();
 
   autostart_start(autostart_processes);
 
@@ -178,5 +176,5 @@ main(void)
 /*---------------------------------------------------------------------------*/
 void uip_log(char *msg)
 {
-  printf("%s\n", msg);
+  INFO(msg);
 }

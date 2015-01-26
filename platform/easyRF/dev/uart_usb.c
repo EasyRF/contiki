@@ -54,6 +54,13 @@ write_byte(const unsigned char b)
 static int
 write_buffer(const unsigned char * buffer, uint8_t len)
 {
+
+  /* Check available space here because ASF has a endless loop! */
+  /* TODO: Make this a non-blocking THREAD */
+  if (!udi_cdc_multi_is_tx_ready(0)) {
+    return -1;
+  }
+
   if (udi_cdc_write_buf(buffer, len) == 0) {
     return len;
   } else {

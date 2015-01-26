@@ -30,8 +30,9 @@ CONTIKI_TARGET_SOURCEFILES += cfs-coffee.c cfs-coffee-arch.c
 
 # Platform specific source files
 CONTIKI_TARGET_SOURCEFILES += contiki-main.c leds-arch.c uart_rs232.c uart_rs485.c uart_usb.c
-CONTIKI_TARGET_SOURCEFILES += dbg-arch.c sst25vf032b-arch.c flash_sst25vf032b.c enc28j60-arch.c display_st7565s.c st7565s-arch.c
-CONTIKI_TARGET_SOURCEFILES += i2c_master_interface.c esd_spi_master.c sensor_bmp180.c sensor_tcs3772.c sensor_si7020.c sensor_joystick.c sensor_qtouch_wheel.c
+CONTIKI_TARGET_SOURCEFILES += dbg-arch.c sst25vf032b-arch.c flash_sst25vf032b.c display_st7565s.c st7565s-arch.c
+CONTIKI_TARGET_SOURCEFILES += i2c_master_interface.c esd_spi_master.c sensor_bmp180.c sensor_tcs3772.c sensor_lsm9ds1.c sensor_si7020.c sensor_joystick.c sensor_qtouch_wheel.c
+CONTIKI_TARGET_SOURCEFILES += enc28j60-arch.c
 
 # Add platform/target specific files to contiki sourcefiles list
 CONTIKI_SOURCEFILES += $(CONTIKI_TARGET_SOURCEFILES)

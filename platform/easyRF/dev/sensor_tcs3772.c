@@ -30,6 +30,36 @@
 #undef TRACE
 #define TRACE(...)
 
+/* Filter sensor values */
+#ifndef RGBCP_FILTER_ENABLE
+#define SENSOR_FILTER_ENABLE     0
+#endif
+/* High value means less noise and slower detection */
+#ifndef RGBCP_FILTER_FACTOR
+#define SENSOR_FILTER_FACTOR     1
+#endif
+/* Nr. of proximity pulses generated (0..255) */
+#ifndef PROX_PULSES
+#define PROX_PULSES              20
+#endif
+/* Integration time of proximity sensor in steps of 2.4ms (1..256) */
+#ifndef PROX_INTEGRATION_TIME
+#define PROX_INTEGRATION_TIME    10
+#endif
+/* Proximity LED Drive Strength (0=100mA, 1=50mA, 2=25mA, 3=12.5mA) */
+#ifndef PROX_LED_DRIVE_STRENGTH
+#define PROX_LED_DRIVE_STRENGTH  0
+#endif
+/* RGBC Gain Control (0=1x, 1=4x, 2=16x, 3=64x) */
+#ifndef RGBC_GAIN
+#define RGBC_GAIN                0
+#endif
+/* Integration time of RGBC sensor in steps of 2.4ms (1..256) */
+#ifndef RGBC_INTEGRATION_TIME
+#define RGBC_INTEGRATION_TIME    10
+#endif
+
+
 /* Bitshift helper */
 #define BM(pos)                 ((uint32_t)1 << pos)
 
@@ -93,16 +123,14 @@
 #define TIMEOUT                 10
 
 /* Update interval */
-#define TCS3772_DEFAULT_READ_INTERVAL   (CLOCK_SECOND * 2)
+#define TCS3772_DEFAULT_READ_INTERVAL   (CLOCK_SECOND / 2)
 
+/* Nr. of sensors in the chip */
+#define NR_OF_SENSORS          5
 
 struct status_regs {
   uint8_t   status;
-  uint16_t  cdata;
-  uint16_t  rdata;
-  uint16_t  gdata;
-  uint16_t  bdata;
-  uint16_t  pdata;
+  uint16_t  value[NR_OF_SENSORS];
 } __attribute__ ((packed));
 
 
@@ -116,23 +144,58 @@ PROCESS(tcs3772_process, "TCS3772 Process");
 static bool
 update_values(void)
 {
+
+  static bool first_time=1;
+  struct status_regs tmp_sensor_data;
   struct status_regs new_sensor_data;
   uint8_t cmd;
 
+  /* Get sensor values from chip */
   cmd = REG_STATUS | COMMAND_AUTO_INC | COMMAND_BIT;
   if (!i2c_master_read_reg(SLAVE_ADDRESS, &cmd, sizeof(cmd),
-                           (uint8_t *)&new_sensor_data, sizeof(new_sensor_data))) {
+                           (uint8_t *)&tmp_sensor_data, sizeof(tmp_sensor_data))) {
     return false;
   }
 
-  TRACE("status: 0x%02X, cdata: 0x%04X, rdata: 0x%04X, gdata: 0x%04X, bdata: 0x%04X, pdata: 0x%04X\n",
-         new_sensor_data.status, new_sensor_data.cdata, new_sensor_data.rdata, new_sensor_data.gdata, new_sensor_data.bdata, new_sensor_data.pdata);
+  /* Print new values */
+  TRACE("NEW: status: 0x%02X, cdata: 0x%04X, rdata: 0x%04X, gdata: 0x%04X, bdata: 0x%04X, pdata: 0x%04X\n",
+        tmp_sensor_data.status, tmp_sensor_data.value[0], tmp_sensor_data.value[1], tmp_sensor_data.value[2], tmp_sensor_data.value[3], tmp_sensor_data.value[4]);
 
+  /* Apply filtering */
+  if(RGBCP_FILTER_ENABLE){
+    static uint32_t filter_sum[NR_OF_SENSORS];
+    int i;
+
+    if(first_time){
+      for(i=0;i<NR_OF_SENSORS;i++)
+        filter_sum[i] = tmp_sensor_data.value[i]* RGBCP_FILTER_FACTOR;
+      first_time=0;
+      memcpy(&new_sensor_data, &tmp_sensor_data, sizeof(sensor_data));
+    }
+    else{
+      for(i=0;i<NR_OF_SENSORS;i++){
+        filter_sum[i] += tmp_sensor_data.value[i] - sensor_data.value[i];
+        new_sensor_data.value[i] = filter_sum[i] / RGBCP_FILTER_FACTOR;
+      }
+    }
+  }
+  else{
+    memcpy(&new_sensor_data, &tmp_sensor_data, sizeof(sensor_data));
+  }
+
+  /* Print filtered values */
+  if(RGBCP_FILTER_ENABLE){
+    TRACE("FILTERED: cdata: 0x%04X, rdata: 0x%04X, gdata: 0x%04X, bdata: 0x%04X, pdata: 0x%04X\n",
+          new_sensor_data.value[0], new_sensor_data.value[1], new_sensor_data.value[2], new_sensor_data.value[3], new_sensor_data.value[4]);
+  }
+
+  /* Check if sensor values are changed */
   if (memcmp(&sensor_data, &new_sensor_data, sizeof(sensor_data)) != 0) {
     memcpy(&sensor_data, &new_sensor_data, sizeof(sensor_data));
     sensors_changed(&rgbc_sensor);
   }
 
+  first_time=0;
   return true;
 }
 /*---------------------------------------------------------------------------*/
@@ -156,12 +219,40 @@ activate_sensor(void)
 {
   uint8_t cmd[2];
 
-  cmd[0] = REG_ENABLE | COMMAND_REPEAT |COMMAND_BIT;
-  cmd[1] = ENABLE_PON | ENABLE_AEN | ENABLE_PEN;
+  /* Set Integration time of RGBC sensor in steps of 2.4ms */
+  cmd[0] = REG_RGBC_TIME | COMMAND_REPEAT | COMMAND_BIT;
+  cmd[1] = RGBC_ATIME(RGBC_INTEGRATION_TIME);
   if (!i2c_master_write_reg(SLAVE_ADDRESS, cmd, sizeof(cmd))) {
     return false;
   }
 
+  /* Set LED drive strenght and RGBC gain */
+  cmd[0] = REG_CONTROL | COMMAND_REPEAT | COMMAND_BIT;
+  cmd[1] = PDRIVE(PROX_LED_DRIVE_STRENGTH) | AGAIN(RGBC_GAIN);
+  if (!i2c_master_write_reg(SLAVE_ADDRESS, cmd, sizeof(cmd))) {
+    return false;
+  }
+
+  /* Set Nr. of proximity pulses generated */
+  cmd[0] = REG_PROXIMITY_PULSE_CNT | COMMAND_REPEAT | COMMAND_BIT;
+  cmd[1] = PROX_PULSES;
+  if (!i2c_master_write_reg(SLAVE_ADDRESS, cmd, sizeof(cmd))) {
+    return false;
+  }
+
+  /* Set Integration time of proximity sensor in steps of 2.4ms */
+  cmd[0] = REG_PROXMITY_TIME | COMMAND_REPEAT | COMMAND_BIT;
+  cmd[1] = PROXIMITY_TIME(PROX_INTEGRATION_TIME);
+  if (!i2c_master_write_reg(SLAVE_ADDRESS, cmd, sizeof(cmd))) {
+    return false;
+  }
+
+  /* Enable sensors */
+  cmd[0] = REG_ENABLE | COMMAND_REPEAT | COMMAND_BIT;
+  cmd[1] = ENABLE_PON | ENABLE_AEN | ENABLE_PEN;
+  if (!i2c_master_write_reg(SLAVE_ADDRESS, cmd, sizeof(cmd))) {
+    return false;
+  }
   sensor_active = true;
 
   return true;
@@ -187,10 +278,12 @@ static int
 value(int type)
 {
   switch(type) {
-  case TCS3772_RED: return sensor_data.rdata;
-  case TCS3772_GREEN: return sensor_data.gdata;
-  case TCS3772_BLUE: return sensor_data.bdata;
-  case TCS3772_CLEAR: return sensor_data.cdata;
+  case TCS3772_RED:
+  case TCS3772_GREEN:
+  case TCS3772_BLUE:
+  case TCS3772_CLEAR:
+  case TCS3772_PROX:
+    return sensor_data.value[type];
   default:
     WARN("Invalid property");
     return 0;

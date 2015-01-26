@@ -26,20 +26,21 @@
  * This file is part of the Contiki operating system.
  *
  */
+#include <string.h>
+#include <stdbool.h>
 
 #include "contiki.h"
 #include "contiki-lib.h"
 #include "contiki-net.h"
 #include "net/ip/resolv.h"
+#include "dev/leds.h"
+#include "log.h"
+#include "lib/sensors.h"
+#include "dev/sensor_joystick.h"
 
-#include <string.h>
-#include <stdbool.h>
 
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
-
-#define SEND_INTERVAL     (CLOCK_SECOND / 2)
-#define MAX_PAYLOAD_LEN   40
 
 #define SERVER_PORT 80
 
@@ -55,37 +56,44 @@ static uint8_t inputbuf[INPUTBUFSIZE];
 #define OUTPUTBUFSIZE 400
 static uint8_t outputbuf[OUTPUTBUFSIZE];
 
+#define SEND_INTERVAL     (CLOCK_SECOND)
+#define MAX_SEND_INTERVAL (CLOCK_SECOND * 5)
+#define MAX_PAYLOAD_LEN   OUTPUTBUFSIZE
+
+static int send_interval = SEND_INTERVAL;
+static int packet_length = 10; //MAX_PAYLOAD_LEN / 2;
+
 /*---------------------------------------------------------------------------*/
 PROCESS(tcp_client_process, "TCP client process");
 AUTOSTART_PROCESSES(&resolv_process,&tcp_client_process);
 /*---------------------------------------------------------------------------*/
-static char buf[MAX_PAYLOAD_LEN];
+static uint8_t buf[MAX_PAYLOAD_LEN];
 static void
 timeout_handler(void)
 {
-  static int seq_id;
-
   if (!connected) {
-    printf("waiting for socket connection...\n");
+    INFO("waiting for socket connection...");
     return;
   }
 
   if (sending) {
-    printf("waiting for data sent...\n");
+    printf(".");
     return;
   }
 
-  printf("Client sending to: ");
-  PRINT6ADDR(&ipaddr);
-  sprintf(buf, "Hello %d from the client", ++seq_id);
-  printf(" (msg: %s)\n", buf);
+  buf[0]++;
+
+  leds_toggle(LEDS_GREEN);
+
 #if SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION
   tcp_socket_send(&socket, (const uint8_t *)buf, UIP_APPDATA_SIZE);
 #else /* SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION */
-  tcp_socket_send(&socket, (const uint8_t *)buf, strlen(buf));
+  tcp_socket_send(&socket, (const uint8_t *)buf, packet_length);//(random_rand() % MAX_PAYLOAD_LEN) + 1);
 #endif /* SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION */
 
   sending = 1;
+
+//  INFO("START tcp send");
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -101,20 +109,23 @@ event(struct tcp_socket *s, void *ptr,
       tcp_socket_event_t ev)
 {
   if(ev == TCP_SOCKET_CONNECTED) {
-    printf("Socket connected\n");
+    INFO("Socket connected");
     connected = 1;
   } else if(ev == TCP_SOCKET_DATA_SENT) {
-    printf("Socket data was sent\n");
+//    INFO("END tcp send");
     sending = 0;
   } else if(ev == TCP_SOCKET_CLOSED) {
     connected = 0;
-    printf("Socket closed\n");
+    sending = 0;
+    INFO("Socket closed");
   } else if(ev == TCP_SOCKET_ABORTED) {
     connected = 0;
-    printf("Socket reset\n");
+    sending = 0;
+    INFO("Socket reset");
   } else if(ev == TCP_SOCKET_TIMEDOUT) {
     connected = 0;
-    printf("Socket timedout\n");
+    sending = 0;
+    INFO("Socket timedout");
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -188,18 +199,83 @@ set_connection_address(uip_ipaddr_t *ipaddr)
   return status;
 }
 /*---------------------------------------------------------------------------*/
+PROCESS(adjust_packet_length_process, "adjust_packet_length_process");
+PROCESS_THREAD(adjust_packet_length_process, ev, data)
+{
+  struct sensors_sensor *sensor;
+
+  PROCESS_BEGIN();
+
+  process_start(&sensors_process, NULL);
+  SENSORS_ACTIVATE(joystick_sensor);
+
+  while (1) {
+    PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event);
+
+    sensor = (struct sensors_sensor *)data;
+
+    if (sensor == &joystick_sensor ) {
+      int new_packet_length = packet_length;
+      int new_send_interval = send_interval;
+
+      if (joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_LEFT) {
+        new_packet_length -= 1;
+      } else if (joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_RIGHT) {
+        new_packet_length += 1;
+      } else if (joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_UP) {
+        new_send_interval += 10;
+      } else if (joystick_sensor.value(JOYSTICK_STATE) == JOYSTICK_DOWN) {
+        new_send_interval -= 10;
+      }
+
+      if (new_packet_length < 1) {
+        new_packet_length = 1;
+      } else if (new_packet_length > MAX_PAYLOAD_LEN) {
+        new_packet_length = MAX_PAYLOAD_LEN;
+      }
+
+      if (new_packet_length != packet_length) {
+        packet_length = new_packet_length;
+        INFO("new packet length = %d", packet_length);
+      }
+
+      if (new_send_interval < 1) {
+        new_send_interval = 1;
+      } else if (new_send_interval > MAX_SEND_INTERVAL) {
+        new_send_interval = MAX_SEND_INTERVAL;
+      }
+
+      if (new_send_interval != send_interval) {
+        send_interval = new_send_interval;
+        INFO("new send interval = %d", send_interval);
+      }
+    }
+  }
+
+  PROCESS_END();
+}
+
+/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(tcp_client_process, ev, data)
 {
   static struct etimer et;
 
   PROCESS_BEGIN();
+
   PRINTF("TCP client process started\n");
+
+  process_start(&adjust_packet_length_process, 0);
 
 #if UIP_CONF_ROUTER
   set_global_address();
 #endif
 
   print_local_addresses();
+
+  /* Fill buffer with test data */
+  for (int i = 0; i < MAX_PAYLOAD_LEN; i++) {
+    buf[i] = i;
+  }
 
   static resolv_status_t status = RESOLV_STATUS_UNCACHED;
   while(status != RESOLV_STATUS_CACHED) {
@@ -224,15 +300,13 @@ PROCESS_THREAD(tcp_client_process, ev, data)
   PRINT6ADDR(&ipaddr);
   PRINTF("\n");
 
-  etimer_set(&et, SEND_INTERVAL);
   while(1) {
+    etimer_set(&et, send_interval);
     PROCESS_YIELD();
     if(etimer_expired(&et)) {
       timeout_handler();
-      etimer_restart(&et);
     }
   }
 
   PROCESS_END();
 }
-/*---------------------------------------------------------------------------*/

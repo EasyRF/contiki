@@ -306,6 +306,9 @@ event(struct tcp_socket *tcps, void *ptr,
   } else if(e == TCP_SOCKET_DATA_SENT) {
     if (s->method == HTTP_POST) {
       if (s->post_headers_sent == 0) {
+        if (s->connection_policy == HTTP_CONNECTION_KEEPALIVE) {
+          tcp_socket_send_str(tcps, "Connection: Keep-Alive\r\n");
+        }
         tcp_socket_send_str(tcps, "Content-type: ");
         tcp_socket_send_str(tcps, s->content_type);
         tcp_socket_send_str(tcps, "\r\n");
@@ -441,12 +444,14 @@ init(struct http_socket *s,
 int
 http_socket_get(struct http_socket *s,
                 const char *url,
+                http_socket_connection_t connection,
                 http_socket_callback_t callback,
                 void *callbackptr)
 {
   init(s, url, callback, callbackptr);
 
   s->method = HTTP_GET;
+  s->connection_policy = connection;
 
   return start_request(s);
 }
@@ -455,12 +460,14 @@ int http_socket_post(struct http_socket *s, const char *url,
                       const uint8_t *postdata,
                       uint16_t postdatalen,
                       const char *content_type,
+                      http_socket_connection_t connection,
                       http_socket_callback_t callback,
                       void *callbackptr)
 {
   init(s, url, callback, callbackptr);
 
   s->method = HTTP_POST;
+  s->connection_policy = connection;
   s->request_data = postdata;
   s->request_datalen = postdatalen;
   s->request_dataptr = 0;

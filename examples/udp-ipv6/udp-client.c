@@ -31,6 +31,8 @@
 #include "contiki-lib.h"
 #include "contiki-net.h"
 #include "net/ip/resolv.h"
+#include "lib/random.h"
+#include "dev/leds.h"
 
 #include "log.h"
 
@@ -40,8 +42,8 @@
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
-#define SEND_INTERVAL		(CLOCK_SECOND / 50)
-#define MAX_PAYLOAD_LEN		40
+#define SEND_INTERVAL     (CLOCK_SECOND / 100)
+#define MAX_PAYLOAD_LEN   125
 
 static struct uip_udp_conn *client_conn;
 /*---------------------------------------------------------------------------*/
@@ -60,20 +62,22 @@ tcpip_handler(void)
   }
 }
 /*---------------------------------------------------------------------------*/
-static char buf[MAX_PAYLOAD_LEN];
+static uint8_t buf[MAX_PAYLOAD_LEN];
 static void
 timeout_handler(void)
 {
-  static int seq_id;
+  buf[0]++;
+
+  leds_toggle(LEDS_GREEN);
 
 //  PRINTF("Client sending to: ");
 //  PRINT6ADDR(&client_conn->ripaddr);
-  sprintf(buf, "Hello %d from the client", ++seq_id);
+//  sprintf(buf, "%d", ++seq_id);
 //  INFO(" (msg: %s)", buf);
 #if SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION
   uip_udp_packet_send(client_conn, buf, UIP_APPDATA_SIZE);
 #else /* SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION */
-  uip_udp_packet_send(client_conn, buf, strlen(buf));
+  uip_udp_packet_send(client_conn, buf, (random_rand() % MAX_PAYLOAD_LEN) + 1);
 #endif /* SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION */
 }
 /*---------------------------------------------------------------------------*/
@@ -161,6 +165,11 @@ PROCESS_THREAD(udp_client_process, ev, data)
 
   print_local_addresses();
 
+  /* Fill buffer with test data */
+  for (int i = 0; i < MAX_PAYLOAD_LEN; i++) {
+    buf[i] = i;
+  }
+
   static resolv_status_t status = RESOLV_STATUS_UNCACHED;
   while(status != RESOLV_STATUS_CACHED) {
     status = set_connection_address(&ipaddr);
@@ -182,12 +191,11 @@ PROCESS_THREAD(udp_client_process, ev, data)
   PRINTF(" local/remote port %u/%u\n",
   UIP_HTONS(client_conn->lport), UIP_HTONS(client_conn->rport));
 
-  etimer_set(&et, SEND_INTERVAL);
   while(1) {
+    etimer_set(&et, (random_rand() % SEND_INTERVAL) + SEND_INTERVAL);
     PROCESS_YIELD();
     if(etimer_expired(&et)) {
       timeout_handler();
-      etimer_restart(&et);
     } else if(ev == tcpip_event) {
       tcpip_handler();
     }
