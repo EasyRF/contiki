@@ -31,8 +31,37 @@
 #define TRACE(...)
 
 
+/* Supported flash devices */
+enum flash_device_type {
+  SST25VF032B,
+  S25FL132K,
+  LAST_CHIP
+};
+
+/* Properties of flash devices */
+struct flash_device {
+  enum flash_device_type type;
+  char name[16];
+  uint32_t jedec_id;
+  int sector_size;
+  int sector_count;
+  int page_size;
+};
+
+static struct flash_device flash_devices[] = {
+  { SST25VF032B, "SST25VF032B", 0x00BF254A, 4096, 1024,  -1 },
+  { S25FL132K,   "S25FL132K",   0x00014016, 4096, 1024, 256 }
+};
+
+static struct flash_device * flash_device;
+
+/* Memory sizes */
+#define SECTOR_SIZE           4096
+#define SECTOR_COUNT          1024
+#define PAGE_SIZE             256
+
 /* Bitshift helper */
-#define BM(pos)         ((uint32_t)1 << pos)
+#define BM(pos)               ((uint32_t)1 << pos)
 
 /* Commands */
 #define READ_JEDEC_ID         0x9F
@@ -95,9 +124,14 @@ read_status_register(void)
 static inline void
 wait_busy(void)
 {
+  uint32_t i = 0;
   uint8_t status;
   do {
     status = read_status_register();
+    if (++i % 1000 == 0) {
+      watchdog_periodic();
+      TRACE("status = %02X", status);
+    }
   } while ((status & STATUS_BUSY) == STATUS_BUSY);
 }
 /*---------------------------------------------------------------------------*/
@@ -113,7 +147,7 @@ read_jedec_id(void)
   jedec_id = (jedec_id | sst25vf032b_arch_spi_read());
   sst25vf032b_arch_spi_deselect();
 
-  TRACE("JEDEC ID: %ld", jedec_id);
+  TRACE("JEDEC ID: %04lX", jedec_id);
 
   return jedec_id;
 }
@@ -153,10 +187,12 @@ write_status_register(uint8_t status)
 static void
 chip_erase(void)
 {
+  TRACE("Starting full chip erase");
   write_enable();
   sst25vf032b_arch_spi_select();
   sst25vf032b_arch_spi_write(CHIP_ERASE_CMD);
   sst25vf032b_arch_spi_deselect();
+  TRACE("Wait for erase complete");
   wait_busy();
   TRACE("Full chip erase completed");
 }
@@ -181,11 +217,24 @@ open(void)
     /* Initalize SPI interface */
     sst25vf032b_arch_spi_init();
 
+    /* Reset device */
+    write_disable();
+
     /* Read ID */
-    if (read_jedec_id() != 0xBF254A) {
-      WARN("Invalid chip ID");
+    uint32_t id = read_jedec_id();
+    flash_device = 0;
+    for (int i = 0; i < LAST_CHIP; i++) {
+      if (id == flash_devices[i].jedec_id) {
+        flash_device = &flash_devices[i];
+      }
+    }
+
+    if (!flash_device) {
+      WARN("No supported flash device found");
       return -1;
     }
+
+    INFO("Found flash device: %s", flash_device->name);
 
     /* Unprotect all block levels */
     write_status_register(0x00);
@@ -203,6 +252,7 @@ open(void)
 static void
 close(void)
 {
+  opened = 0;
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -210,10 +260,14 @@ erase(unsigned long from, unsigned long to)
 {
   unsigned long addr;
 
+  if (!opened) {
+    return -1;
+  }
+
   TRACE("Erasing from address %ld to address %ld", from, to);
 
   /* Full chip erase requested */
-  if (from == 0 && to == SST25VF032B_SIZE) {
+  if (from == 0 && to == (SECTOR_SIZE * SECTOR_COUNT)) {
     chip_erase();
     return 1;
   }
@@ -223,12 +277,15 @@ erase(unsigned long from, unsigned long to)
    */
   for (addr = from; addr < to;) {
     if ((to - addr) >= BLOCK_SIZE_64K) {
+      TRACE("64K block erase");
       block_erase(addr, BLOCK_ERASE_64K_CMD);
       addr += BLOCK_SIZE_64K;
-    } else if ((to - addr) >= BLOCK_SIZE_32K) {
+    } else if ((to - addr) >= BLOCK_SIZE_32K &&
+               flash_device->type == SST25VF032B) {
       block_erase(addr, BLOCK_ERASE_32K_CMD);
       addr += BLOCK_SIZE_32K;
     } else {
+      TRACE("4K block erase");
       block_erase(addr, BLOCK_ERASE_4K_CMD);
       addr += BLOCK_SIZE_4K;
     }
@@ -241,6 +298,10 @@ static int
 read(unsigned long addr, unsigned char * buffer, unsigned long len)
 {
   unsigned long i;
+
+  if (!opened) {
+    return -1;
+  }
 
   TRACE("Read %ld bytes from address %ld", len, addr);
 
@@ -255,53 +316,139 @@ read(unsigned long addr, unsigned char * buffer, unsigned long len)
   return 1;
 }
 /*---------------------------------------------------------------------------*/
-static int
-write(unsigned long addr, const unsigned char * buffer, unsigned long len)
+static void
+write_byte(unsigned long addr, const unsigned char byte)
 {
-  unsigned long start;
-  const unsigned char * ptr;
-
-  TRACE("Writing %ld bytes to address %ld", len, addr);
-
-  ptr = buffer;
-
-  /* Write just 1 byte */
-  if (len == 1) {
-    write_enable();
-    sst25vf032b_arch_spi_select();
-    sst25vf032b_arch_spi_write(BYTE_PROGRAM_CMD);
-    send_address(addr);
-    sst25vf032b_arch_spi_write(*ptr);
-    sst25vf032b_arch_spi_deselect();
-    wait_busy();
-    TRACE("Wrote 1 byte");
-    return 1;
-  }
-
-  /* Write 2 bytes */
   write_enable();
   sst25vf032b_arch_spi_select();
-  sst25vf032b_arch_spi_write(AAI_WORD_PROGRAM_CMD);
+  sst25vf032b_arch_spi_write(BYTE_PROGRAM_CMD);
   send_address(addr);
-  sst25vf032b_arch_spi_write(*ptr++);
-  sst25vf032b_arch_spi_write(*ptr++);
+  sst25vf032b_arch_spi_write(byte);
   sst25vf032b_arch_spi_deselect();
   wait_busy();
+  write_disable();
+  TRACE("Wrote 1 byte to %ld", addr);
+}
+/*---------------------------------------------------------------------------*/
+static int
+write(unsigned long from, const unsigned char * buffer, unsigned long len)
+{
+  unsigned long addr;
+  const unsigned char * ptr;
 
-  for (start = addr + 2; start < (addr + len); start += 2) {
-    sst25vf032b_arch_spi_select();
-    sst25vf032b_arch_spi_write(AAI_WORD_PROGRAM_CMD);
-    sst25vf032b_arch_spi_write(*ptr++);
-    sst25vf032b_arch_spi_write(*ptr++);
+  if (!opened) {
+    return -1;
+  }
+
+  TRACE("Writing %ld bytes to address %ld", len, from);
+
+  ptr = buffer;
+  addr = from;
+
+  if (flash_device->type == SST25VF032B) {
+    unsigned long remaining = len;
+
+    /* Write single byte when length is 1 or address is odd */
+    if ((remaining == 1) || (addr & 1)) {
+      write_byte(addr++, *ptr++);
+      remaining--;
+      TRACE("First byte written");
+    }
+
+    /* Need to send the destination address once */
+    int first_time = 1;
+
+    /* Keep writing two bytes at a time */
+    while (remaining > 1) {
+      if (first_time) {
+        write_enable();
+      }
+      sst25vf032b_arch_spi_select();
+      sst25vf032b_arch_spi_write(AAI_WORD_PROGRAM_CMD);
+      if (first_time) {
+        send_address(addr);
+        first_time = 0;
+      }
+      sst25vf032b_arch_spi_write(*ptr++);
+      sst25vf032b_arch_spi_write(*ptr++);
+      sst25vf032b_arch_spi_deselect();
+      wait_busy();
+      remaining -= 2;
+      addr += 2;
+      TRACE("2 bytes written");
+    }
+    write_disable();
+
+    if (remaining == 1) {
+      write_byte(addr, *ptr);
+      TRACE("Last byte written");
+    }
+
+  } else if (flash_device->type == S25FL132K) {
+
+    /* Initialize to non-existing page */
+    int32_t page = -1;
+
+    for (addr = from; addr < (from + len); addr++) {
+      /* Calculate new page for address */
+      int new_page = addr / flash_device->page_size;
+      /* Check if we're still on the same page ;) */
+      if (page != new_page) {
+        /* Remember new page */
+        page = new_page;
+
+        /* Finish programming previous page */
+        sst25vf032b_arch_spi_deselect();
+        wait_busy();
+
+        /* Prepare chip for programming by sending address */
+        write_enable();
+        sst25vf032b_arch_spi_select();
+        sst25vf032b_arch_spi_write(BYTE_PROGRAM_CMD);
+        send_address(addr);
+      }
+      /* Write one byte */
+      sst25vf032b_arch_spi_write(*ptr++);
+    }
+
+    /* Finish programming */
     sst25vf032b_arch_spi_deselect();
     wait_busy();
   }
-
-  write_disable();
 
   TRACE("Wrote %ld bytes", len);
 
   return 1;
+}
+/*---------------------------------------------------------------------------*/
+static int
+sector_size(void)
+{
+  if (!opened) {
+    return -1;
+  }
+
+  return flash_device->sector_size;
+}
+/*---------------------------------------------------------------------------*/
+static int
+sector_count(void)
+{
+  if (!opened) {
+    return -1;
+  }
+
+  return flash_device->sector_count;
+}
+/*---------------------------------------------------------------------------*/
+static int
+page_size(void)
+{
+  if (!opened) {
+    return -1;
+  }
+
+  return flash_device->page_size;
 }
 /*---------------------------------------------------------------------------*/
 const struct flash_driver flash_sst25vf032b =
@@ -310,5 +457,8 @@ const struct flash_driver flash_sst25vf032b =
   close,
   erase,
   read,
-  write
+  write,
+  sector_size,
+  sector_count,
+  page_size
 };

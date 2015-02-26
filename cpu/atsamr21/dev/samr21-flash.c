@@ -27,14 +27,15 @@
 #include "flash.h"
 
 
-#define PAGE_SIZE   NVMCTRL_PAGE_SIZE
-#define ERASE_SIZE  (PAGE_SIZE * NVMCTRL_ROW_PAGES)
+#define PAGE_SIZE       NVMCTRL_PAGE_SIZE
+#define SECTOR_SIZE     (PAGE_SIZE * NVMCTRL_ROW_PAGES)
+#define SECTOR_COUNT    (NVMCTRL_FLASH_SIZE / SECTOR_SIZE)
 
 
 static uint8_t opened;
 static struct nvm_parameters parameters;
 
-static unsigned char tmp_buffer[ERASE_SIZE];
+static unsigned char tmp_buffer[SECTOR_SIZE];
 
 /*---------------------------------------------------------------------------*/
 static int
@@ -64,6 +65,7 @@ static void
 close(void)
 {
   /* Do nothing */
+  opened = 0;
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -72,10 +74,14 @@ erase(unsigned long from, unsigned long to)
   enum status_code ret;
   unsigned long addr;
 
-  from = (from / ERASE_SIZE) * ERASE_SIZE;
-  to   = (to   / ERASE_SIZE) * ERASE_SIZE;
+  if (!opened) {
+    return -1;
+  }
 
-  for(addr = from; addr < to; addr += ERASE_SIZE) {
+  from = (from / SECTOR_SIZE) * SECTOR_SIZE;
+  to   = (to   / SECTOR_SIZE) * SECTOR_SIZE;
+
+  for(addr = from; addr < to; addr += SECTOR_SIZE) {
     TRACE("addr: %ld", addr);
     if ((ret = nvm_erase_row(addr)) != STATUS_OK) {
       WARN("nvm_erase_row error: %d", ret);
@@ -92,6 +98,10 @@ erase(unsigned long from, unsigned long to)
 static int
 read(unsigned long addr, unsigned char * buffer, unsigned long len)
 {
+  if (!opened) {
+    return -1;
+  }
+
   /* Check if the row address is valid */
   if ((addr + len) >
       ((uint32_t)parameters.page_size * parameters.nvm_number_of_pages)) {
@@ -112,6 +122,10 @@ write(unsigned long addr, const unsigned char * buffer, unsigned long len)
   unsigned long page_addr;
   int copy_len, i;
 
+  if (!opened) {
+    return -1;
+  }
+
   /* Check if the row address is valid */
   if ((addr + len) >
       ((uint32_t)parameters.page_size * parameters.nvm_number_of_pages)) {
@@ -121,10 +135,10 @@ write(unsigned long addr, const unsigned char * buffer, unsigned long len)
 
   while (len > 0) {
     /* Determine start address of page */
-    page_addr = (addr / ERASE_SIZE) * ERASE_SIZE;
+    page_addr = (addr / SECTOR_SIZE) * SECTOR_SIZE;
 
     /* Copy content of current page to tmp_buffer */
-    memcpy(tmp_buffer, (void *)page_addr, ERASE_SIZE);
+    memcpy(tmp_buffer, (void *)page_addr, SECTOR_SIZE);
 
     /* Wait until flash is ready */
     while (!nvm_is_ready());
@@ -133,7 +147,7 @@ write(unsigned long addr, const unsigned char * buffer, unsigned long len)
     nvm_erase_row(page_addr);
 
     /* Determine number of bytes to copy */
-    copy_len = min(len, (page_addr + ERASE_SIZE) - addr);
+    copy_len = min(len, (page_addr + SECTOR_SIZE) - addr);
 
     /* Update tmp_buffer with content from buffer */
     memcpy(&tmp_buffer[addr - page_addr], buffer, copy_len);
@@ -159,11 +173,44 @@ write(unsigned long addr, const unsigned char * buffer, unsigned long len)
   return 1;
 }
 /*---------------------------------------------------------------------------*/
+static int
+sector_size(void)
+{
+  if (!opened) {
+    return -1;
+  }
+
+  return SECTOR_SIZE;
+}
+/*---------------------------------------------------------------------------*/
+static int
+sector_count(void)
+{
+  if (!opened) {
+    return -1;
+  }
+
+  return SECTOR_COUNT;
+}
+/*---------------------------------------------------------------------------*/
+static int
+page_size(void)
+{
+  if (!opened) {
+    return -1;
+  }
+
+  return PAGE_SIZE;
+}
+/*---------------------------------------------------------------------------*/
 const struct flash_driver samr21_flash =
 {
   open,
   close,
   erase,
   read,
-  write
+  write,
+  sector_size,
+  sector_count,
+  page_size
 };

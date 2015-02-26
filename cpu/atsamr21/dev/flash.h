@@ -39,6 +39,12 @@ struct flash_driver {
 
   int (* write)(unsigned long addr, const unsigned char * buffer, unsigned long len);
 
+  int (* sector_size)(void);
+
+  int (* sector_count)(void);
+
+  int (* page_size)(void);
+
 };
 
 unsigned short flash_crc16(const struct flash_driver * flash, unsigned long address, uint32_t len);

@@ -26,10 +26,6 @@
 
 #include "flash.h"
 
-
-#define SST25VF032B_SIZE      (4096UL * 1024UL)
-
-
 extern const struct flash_driver flash_sst25vf032b;
 
 void sst25vf032b_arch_spi_init(void);
