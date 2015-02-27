@@ -28,8 +28,15 @@
 #include "log.h"
 
 
-#define FLASH_DRIVER  INTERNAL_FLASH
-//#define FLASH_DRIVER  EXTERNAL_FLASH
+//#define TEST_EXT_FLASH
+
+#ifdef TEST_EXT_FLASH
+#define FLASH_DRIVER      EXTERNAL_FLASH
+#define ADDRESS_OFFSET    (0)
+#else
+#define FLASH_DRIVER      INTERNAL_FLASH
+#define ADDRESS_OFFSET    (1024 * 128) /* Make sure no program code is overwritten */
+#endif
 
 
 /*---------------------------------------------------------------------------*/
@@ -39,7 +46,7 @@ AUTOSTART_PROCESSES(&flash_test_process);
 PROCESS_THREAD(flash_test_process, ev, data)
 {
   static struct etimer et;
-  int page_size, page_count, sector_size, sector_count;
+  int page_size, sector_size, sector_count;
 
   PROCESS_BEGIN();
 
@@ -54,7 +61,6 @@ PROCESS_THREAD(flash_test_process, ev, data)
   sector_size = FLASH_DRIVER.sector_size();
   sector_count = FLASH_DRIVER.sector_count();
   page_size = FLASH_DRIVER.page_size();
-//  page_count = sector_size * sector_count / page_size;
 
   if (page_size == -1) {
     INFO("Flash has no pages. Defaulting to 256 for tests");
@@ -63,13 +69,13 @@ PROCESS_THREAD(flash_test_process, ev, data)
 
 
   {
-    unsigned long addr = 0;
+    unsigned long addr = ADDRESS_OFFSET;
     uint8_t data_in = 0xAB;
     uint8_t data_out = 0;
 
     INFO("Write 1 byte at start of first page");
 
-    FLASH_DRIVER.erase(0, sector_size);
+    FLASH_DRIVER.erase(addr, addr + sector_size);
     FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
     FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
@@ -81,13 +87,13 @@ PROCESS_THREAD(flash_test_process, ev, data)
   }
 
   {
-    unsigned long addr = page_size - 1;
+    unsigned long addr = ADDRESS_OFFSET + page_size - 1;
     uint8_t data_in = 0xAB;
     uint8_t data_out = 0;
 
     INFO("Write 1 byte at end of first page");
 
-    FLASH_DRIVER.erase(0, sector_size);
+    FLASH_DRIVER.erase(addr, addr + sector_size);
     FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
     FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
@@ -99,13 +105,13 @@ PROCESS_THREAD(flash_test_process, ev, data)
   }
 
   {
-    unsigned long addr = 0;
+    unsigned long addr = ADDRESS_OFFSET;
     unsigned short data_in = 0xABCD;
     unsigned short data_out = 0;
 
     INFO("Write 2 bytes at start of first page");
 
-    FLASH_DRIVER.erase(0, sector_size);
+    FLASH_DRIVER.erase(addr, addr + sector_size);
     FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
     FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
@@ -117,13 +123,13 @@ PROCESS_THREAD(flash_test_process, ev, data)
   }
 
   {
-    unsigned long addr = page_size - 2;
+    unsigned long addr = ADDRESS_OFFSET + page_size - 2;
     unsigned short data_in = 0xABCD;
     unsigned short data_out = 0;
 
     INFO("Write 2 bytes at end of first page");
 
-    FLASH_DRIVER.erase(0, sector_size);
+    FLASH_DRIVER.erase(addr, addr + sector_size);
     FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
     FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
@@ -135,7 +141,7 @@ PROCESS_THREAD(flash_test_process, ev, data)
   }
 
   {
-    unsigned long addr = 0;
+    unsigned long addr = ADDRESS_OFFSET;
     uint8_t data_in[3];
     uint8_t data_out[3];
     uint32_t i;
@@ -146,7 +152,7 @@ PROCESS_THREAD(flash_test_process, ev, data)
       data_in[i] = random_rand();
     }
 
-    FLASH_DRIVER.erase(0, sector_size);
+    FLASH_DRIVER.erase(addr, addr + sector_size);
     FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
     FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
@@ -164,7 +170,7 @@ PROCESS_THREAD(flash_test_process, ev, data)
   }
 
   {
-    unsigned long addr = 1;
+    unsigned long addr = ADDRESS_OFFSET + 1;
     uint8_t data_in[3];
     uint8_t data_out[3];
     uint32_t i;
@@ -175,7 +181,7 @@ PROCESS_THREAD(flash_test_process, ev, data)
       data_in[i] = random_rand();
     }
 
-    FLASH_DRIVER.erase(0, sector_size);
+    FLASH_DRIVER.erase(addr, addr + sector_size);
     FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
     FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
@@ -193,13 +199,13 @@ PROCESS_THREAD(flash_test_process, ev, data)
   }
 
   {
-    unsigned long addr = page_size - 1;
+    unsigned long addr = ADDRESS_OFFSET + page_size - 1;
     unsigned short data_in = 0xABCD;
     unsigned short data_out = 0;
 
     INFO("Write 2 bytes at boundary of first and second page");
 
-    FLASH_DRIVER.erase(0, sector_size);
+    FLASH_DRIVER.erase(addr, addr + sector_size * 2);
     FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
     FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 
@@ -211,7 +217,7 @@ PROCESS_THREAD(flash_test_process, ev, data)
   }
 
   {
-    unsigned long addr = page_size - 10;
+    unsigned long addr = ADDRESS_OFFSET + page_size - 10;
     uint8_t data_in[512];
     uint8_t data_out[512];
     uint32_t i;
@@ -222,7 +228,7 @@ PROCESS_THREAD(flash_test_process, ev, data)
       data_in[i] = random_rand();
     }
 
-    FLASH_DRIVER.erase(0, sector_size);
+    FLASH_DRIVER.erase(addr, addr + sector_size * 3);
     FLASH_DRIVER.write(addr, (const unsigned char *)&data_in, sizeof(data_in));
     FLASH_DRIVER.read(addr, (unsigned char *)&data_out, sizeof(data_out));
 

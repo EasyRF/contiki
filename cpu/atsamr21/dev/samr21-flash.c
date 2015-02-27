@@ -27,6 +27,10 @@
 #include "flash.h"
 
 
+#undef TRACE
+#define TRACE(...)
+
+
 #define PAGE_SIZE       NVMCTRL_PAGE_SIZE
 #define SECTOR_SIZE     (PAGE_SIZE * NVMCTRL_ROW_PAGES)
 #define SECTOR_COUNT    (NVMCTRL_FLASH_SIZE / SECTOR_SIZE)
