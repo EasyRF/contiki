@@ -28,7 +28,7 @@
 #include "log.h"
 
 
-//#define TEST_EXT_FLASH
+#define TEST_EXT_FLASH
 
 #ifdef TEST_EXT_FLASH
 #define FLASH_DRIVER      EXTERNAL_FLASH
@@ -46,7 +46,7 @@ AUTOSTART_PROCESSES(&flash_test_process);
 PROCESS_THREAD(flash_test_process, ev, data)
 {
   static struct etimer et;
-  int page_size, sector_size, sector_count;
+  int page_size, sector_size;
 
   PROCESS_BEGIN();
 
@@ -59,7 +59,6 @@ PROCESS_THREAD(flash_test_process, ev, data)
   FLASH_DRIVER.open();
 
   sector_size = FLASH_DRIVER.sector_size();
-  sector_count = FLASH_DRIVER.sector_count();
   page_size = FLASH_DRIVER.page_size();
 
   if (page_size == -1) {

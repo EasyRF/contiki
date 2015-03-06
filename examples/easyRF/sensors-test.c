@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-#include "compiler.h"
+//#include "compiler.h"
 #include "contiki.h"
 #include "contiki-net.h"
 #include "http-socket.h"
@@ -40,6 +40,8 @@
 #include "dev/display_st7565s.h"
 #include "canvas_textbox.h"
 #include "stack_test.h"
+
+#define MAX(a, b) ((a) > (b)? (a): (b))
 
 
 #define APPLICATION_JSON        "application/json"
@@ -382,7 +384,7 @@ PROCESS_THREAD(http_post_process, ev, data)
     uint32_t green = rgbc_sensor.value(TCS3772_GREEN);
     uint32_t blue  = rgbc_sensor.value(TCS3772_BLUE);
 
-    uint32_t rgb_max = max(red, max(green, blue));
+    uint32_t rgb_max = MAX(red, MAX(green, blue));
 
     snprintf(sensor_data, sizeof(sensor_data),
              "{"

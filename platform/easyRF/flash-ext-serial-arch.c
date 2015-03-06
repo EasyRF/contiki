@@ -28,11 +28,11 @@
 #include "log.h"
 
 
-static struct spi_slave_inst sst25vf032b_spi_slave;
+static struct spi_slave_inst flash_ext_serial_spi_slave;
 
 
 void
-sst25vf032b_arch_spi_init(void)
+flash_ext_serial_arch_spi_init(void)
 {
   struct spi_slave_inst_config slave_dev_config;
 
@@ -42,11 +42,11 @@ sst25vf032b_arch_spi_init(void)
   /* Congfigure slave SPI device */
   spi_slave_inst_get_config_defaults(&slave_dev_config);
   slave_dev_config.ss_pin = SERIAL_FLASH_CS;
-  spi_attach_slave(&sst25vf032b_spi_slave, &slave_dev_config);
+  spi_attach_slave(&flash_ext_serial_spi_slave, &slave_dev_config);
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-sst25vf032b_arch_spi_write(uint8_t data)
+flash_ext_serial_arch_spi_write(uint8_t data)
 {
   uint16_t in;
   spi_transceive_wait(&esd_spi_master_instance, data, &in);
@@ -54,7 +54,7 @@ sst25vf032b_arch_spi_write(uint8_t data)
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-sst25vf032b_arch_spi_read(void)
+flash_ext_serial_arch_spi_read(void)
 {
   uint16_t out = 0xff, in = 0;
   spi_transceive_wait(&esd_spi_master_instance, out, &in);
@@ -62,15 +62,15 @@ sst25vf032b_arch_spi_read(void)
 }
 /*---------------------------------------------------------------------------*/
 void
-sst25vf032b_arch_spi_select(void)
+flash_ext_serial_arch_spi_select(void)
 {
-  spi_select_slave(&esd_spi_master_instance, &sst25vf032b_spi_slave, true);
+  spi_select_slave(&esd_spi_master_instance, &flash_ext_serial_spi_slave, true);
 }
 /*---------------------------------------------------------------------------*/
 void
-sst25vf032b_arch_spi_deselect(void)
+flash_ext_serial_arch_spi_deselect(void)
 {
-  spi_select_slave(&esd_spi_master_instance, &sst25vf032b_spi_slave, false);
+  spi_select_slave(&esd_spi_master_instance, &flash_ext_serial_spi_slave, false);
 }
 /*---------------------------------------------------------------------------*/
 

@@ -28,6 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+#include <stdio.h>
 #include "contiki.h"
 #include "contiki-net.h"
 #include "net/ip/resolv.h"
@@ -345,7 +346,7 @@ start_request(struct http_socket *s)
 {
   uip_ip4addr_t ip4addr;
   uip_ip6addr_t ip6addr;
-  uip_ip6addr_t *addr;
+  uip_ipaddr_t *addr;
   char host[MAX_HOSTLEN];
   char path[MAX_PATHLEN];
   uint16_t port;
@@ -371,7 +372,7 @@ start_request(struct http_socket *s)
         return HTTP_SOCKET_OK;
       }
     }
-    tcp_socket_connect(&s->s, &ip6addr, port);
+    tcp_socket_connect(&s->s, (uip_ipaddr_t *)&ip6addr, port);
     return HTTP_SOCKET_OK;
   } else {
     return HTTP_SOCKET_ERR;

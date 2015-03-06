@@ -26,12 +26,12 @@
 
 #include "flash.h"
 
-extern const struct flash_driver flash_sst25vf032b;
+extern const struct flash_driver flash_ext_serial;
 
-void sst25vf032b_arch_spi_init(void);
-uint8_t sst25vf032b_arch_spi_write(uint8_t data);
-uint8_t sst25vf032b_arch_spi_read(void);
-void sst25vf032b_arch_spi_select(void);
-void sst25vf032b_arch_spi_deselect(void);
+void flash_ext_serial_arch_spi_init(void);
+uint8_t flash_ext_serial_arch_spi_write(uint8_t data);
+uint8_t flash_ext_serial_arch_spi_read(void);
+void flash_ext_serial_arch_spi_select(void);
+void flash_ext_serial_arch_spi_deselect(void);
 
 #endif // AT25DF32S_H

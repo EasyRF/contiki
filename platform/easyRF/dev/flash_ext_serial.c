@@ -25,7 +25,7 @@
 #include "esd_spi_master.h"
 #include "dev/watchdog.h"
 #include "log.h"
-#include "flash_sst25vf032b.h"
+#include "flash_ext_serial.h"
 
 #undef TRACE
 #define TRACE(...)
@@ -101,9 +101,9 @@ static bool opened;
 static inline void
 send_address(unsigned long addr)
 {
-  sst25vf032b_arch_spi_write(((addr & 0xFFFFFF) >> 16));
-  sst25vf032b_arch_spi_write(((addr & 0xFFFF) >> 8));
-  sst25vf032b_arch_spi_write(addr & 0xFF);
+  flash_ext_serial_arch_spi_write(((addr & 0xFFFFFF) >> 16));
+  flash_ext_serial_arch_spi_write(((addr & 0xFFFF) >> 8));
+  flash_ext_serial_arch_spi_write(addr & 0xFF);
 }
 /*---------------------------------------------------------------------------*/
 static uint8_t
@@ -111,10 +111,10 @@ read_status_register(void)
 {
   uint8_t status = 0;
 
-  sst25vf032b_arch_spi_select();
-  sst25vf032b_arch_spi_write(READ_STATUS_REG);
-  status = sst25vf032b_arch_spi_read();
-  sst25vf032b_arch_spi_deselect();
+  flash_ext_serial_arch_spi_select();
+  flash_ext_serial_arch_spi_write(READ_STATUS_REG);
+  status = flash_ext_serial_arch_spi_read();
+  flash_ext_serial_arch_spi_deselect();
 
 //  TRACE("status = %02X", status);
 
@@ -140,12 +140,12 @@ read_jedec_id(void)
 {
   unsigned long jedec_id = 0;
 
-  sst25vf032b_arch_spi_select();
-  sst25vf032b_arch_spi_write(READ_JEDEC_ID);
-  jedec_id = (jedec_id | sst25vf032b_arch_spi_read()) << 8;
-  jedec_id = (jedec_id | sst25vf032b_arch_spi_read()) << 8;
-  jedec_id = (jedec_id | sst25vf032b_arch_spi_read());
-  sst25vf032b_arch_spi_deselect();
+  flash_ext_serial_arch_spi_select();
+  flash_ext_serial_arch_spi_write(READ_JEDEC_ID);
+  jedec_id = (jedec_id | flash_ext_serial_arch_spi_read()) << 8;
+  jedec_id = (jedec_id | flash_ext_serial_arch_spi_read()) << 8;
+  jedec_id = (jedec_id | flash_ext_serial_arch_spi_read());
+  flash_ext_serial_arch_spi_deselect();
 
   TRACE("JEDEC ID: %04lX", jedec_id);
 
@@ -156,9 +156,9 @@ static void
 write_enable(void)
 {
   do {
-    sst25vf032b_arch_spi_select();
-    sst25vf032b_arch_spi_write(WRITE_ENABLE_CMD);
-    sst25vf032b_arch_spi_deselect();
+    flash_ext_serial_arch_spi_select();
+    flash_ext_serial_arch_spi_write(WRITE_ENABLE_CMD);
+    flash_ext_serial_arch_spi_deselect();
   } while ((read_status_register() & STATUS_WEL) != STATUS_WEL);
   TRACE("Write enabled");
 }
@@ -167,9 +167,9 @@ static void
 write_disable(void)
 {
   do {
-    sst25vf032b_arch_spi_select();
-    sst25vf032b_arch_spi_write(WRITE_DISABLE_CMD);
-    sst25vf032b_arch_spi_deselect();
+    flash_ext_serial_arch_spi_select();
+    flash_ext_serial_arch_spi_write(WRITE_DISABLE_CMD);
+    flash_ext_serial_arch_spi_deselect();
   } while ((read_status_register() & STATUS_WEL) == STATUS_WEL);
   TRACE("Write disabled");
 }
@@ -178,10 +178,10 @@ static void
 write_status_register(uint8_t status)
 {
   write_enable();
-  sst25vf032b_arch_spi_select();
-  sst25vf032b_arch_spi_write(WRITE_STAT_REG);
-  sst25vf032b_arch_spi_write(status);
-  sst25vf032b_arch_spi_deselect();
+  flash_ext_serial_arch_spi_select();
+  flash_ext_serial_arch_spi_write(WRITE_STAT_REG);
+  flash_ext_serial_arch_spi_write(status);
+  flash_ext_serial_arch_spi_deselect();
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -189,9 +189,9 @@ chip_erase(void)
 {
   TRACE("Starting full chip erase");
   write_enable();
-  sst25vf032b_arch_spi_select();
-  sst25vf032b_arch_spi_write(CHIP_ERASE_CMD);
-  sst25vf032b_arch_spi_deselect();
+  flash_ext_serial_arch_spi_select();
+  flash_ext_serial_arch_spi_write(CHIP_ERASE_CMD);
+  flash_ext_serial_arch_spi_deselect();
   TRACE("Wait for erase complete");
   wait_busy();
   TRACE("Full chip erase completed");
@@ -201,10 +201,10 @@ static void
 block_erase(unsigned long addr, uint8_t erase_cmd)
 {
   write_enable();
-  sst25vf032b_arch_spi_select();
-  sst25vf032b_arch_spi_write(erase_cmd);
+  flash_ext_serial_arch_spi_select();
+  flash_ext_serial_arch_spi_write(erase_cmd);
   send_address(addr);
-  sst25vf032b_arch_spi_deselect();
+  flash_ext_serial_arch_spi_deselect();
   wait_busy();
   TRACE("Block erase completed");
 }
@@ -215,7 +215,7 @@ open(void)
   if (!opened) {
 
     /* Initalize SPI interface */
-    sst25vf032b_arch_spi_init();
+    flash_ext_serial_arch_spi_init();
 
     /* Reset device */
     write_disable();
@@ -305,13 +305,13 @@ read(unsigned long addr, unsigned char * buffer, unsigned long len)
 
   TRACE("Read %ld bytes from address %ld", len, addr);
 
-  sst25vf032b_arch_spi_select();
-  sst25vf032b_arch_spi_write(READ_CMD);
+  flash_ext_serial_arch_spi_select();
+  flash_ext_serial_arch_spi_write(READ_CMD);
   send_address(addr);
   for (i = 0; i < len; i++) {
-    buffer[i] = sst25vf032b_arch_spi_read();
+    buffer[i] = flash_ext_serial_arch_spi_read();
   }
-  sst25vf032b_arch_spi_deselect();
+  flash_ext_serial_arch_spi_deselect();
 
   return 1;
 }
@@ -320,11 +320,11 @@ static void
 write_byte(unsigned long addr, const unsigned char byte)
 {
   write_enable();
-  sst25vf032b_arch_spi_select();
-  sst25vf032b_arch_spi_write(BYTE_PROGRAM_CMD);
+  flash_ext_serial_arch_spi_select();
+  flash_ext_serial_arch_spi_write(BYTE_PROGRAM_CMD);
   send_address(addr);
-  sst25vf032b_arch_spi_write(byte);
-  sst25vf032b_arch_spi_deselect();
+  flash_ext_serial_arch_spi_write(byte);
+  flash_ext_serial_arch_spi_deselect();
   wait_busy();
   write_disable();
   TRACE("Wrote 1 byte to %ld", addr);
@@ -363,15 +363,15 @@ write(unsigned long from, const unsigned char * buffer, unsigned long len)
       if (first_time) {
         write_enable();
       }
-      sst25vf032b_arch_spi_select();
-      sst25vf032b_arch_spi_write(AAI_WORD_PROGRAM_CMD);
+      flash_ext_serial_arch_spi_select();
+      flash_ext_serial_arch_spi_write(AAI_WORD_PROGRAM_CMD);
       if (first_time) {
         send_address(addr);
         first_time = 0;
       }
-      sst25vf032b_arch_spi_write(*ptr++);
-      sst25vf032b_arch_spi_write(*ptr++);
-      sst25vf032b_arch_spi_deselect();
+      flash_ext_serial_arch_spi_write(*ptr++);
+      flash_ext_serial_arch_spi_write(*ptr++);
+      flash_ext_serial_arch_spi_deselect();
       wait_busy();
       remaining -= 2;
       addr += 2;
@@ -398,21 +398,21 @@ write(unsigned long from, const unsigned char * buffer, unsigned long len)
         page = new_page;
 
         /* Finish programming previous page */
-        sst25vf032b_arch_spi_deselect();
+        flash_ext_serial_arch_spi_deselect();
         wait_busy();
 
         /* Prepare chip for programming by sending address */
         write_enable();
-        sst25vf032b_arch_spi_select();
-        sst25vf032b_arch_spi_write(BYTE_PROGRAM_CMD);
+        flash_ext_serial_arch_spi_select();
+        flash_ext_serial_arch_spi_write(BYTE_PROGRAM_CMD);
         send_address(addr);
       }
       /* Write one byte */
-      sst25vf032b_arch_spi_write(*ptr++);
+      flash_ext_serial_arch_spi_write(*ptr++);
     }
 
     /* Finish programming */
-    sst25vf032b_arch_spi_deselect();
+    flash_ext_serial_arch_spi_deselect();
     wait_busy();
   }
 
@@ -451,7 +451,7 @@ page_size(void)
   return flash_device->page_size;
 }
 /*---------------------------------------------------------------------------*/
-const struct flash_driver flash_sst25vf032b =
+const struct flash_driver flash_ext_serial =
 {
   open,
   close,

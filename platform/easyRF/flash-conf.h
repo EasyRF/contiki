@@ -26,9 +26,9 @@
 #define FLASHCONF_H
 
 #include "samr21-flash.h"
-#include "flash_sst25vf032b.h"
+#include "flash_ext_serial.h"
 
 #define INTERNAL_FLASH  samr21_flash
-#define EXTERNAL_FLASH  flash_sst25vf032b
+#define EXTERNAL_FLASH  flash_ext_serial
 
 #endif // FLASHCONF_H
