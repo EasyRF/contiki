@@ -165,7 +165,7 @@ void system_board_init(void);
  * @{
  */
 
-#define TOUCH_TC_MODULE   TC3
+#define TOUCH_TC_MODULE   TC4
 
 /** @} */
 

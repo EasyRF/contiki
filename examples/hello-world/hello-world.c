@@ -47,9 +47,17 @@ AUTOSTART_PROCESSES(&hello_world_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(hello_world_process, ev, data)
 {
+  static struct etimer et;
+
   PROCESS_BEGIN();
 
-  INFO("Hello, world\n");
+  while (1) {
+    etimer_set(&et, 1000);
+
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+
+    INFO("Hello, world");
+  }
 
   PROCESS_END();
 }
