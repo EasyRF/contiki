@@ -854,8 +854,18 @@ configure_tc(void)
 {
   leds_off(LEDS_RED);
 
+  uint8_t revision = (REG_DSU_DID >> 8) & 0xF;
+
   /* Show revision of RF chip since the GCLK_IO differs for rev. A */
-  INFO("DID: %lX", REG_DSU_DID);
+  INFO("revision: %lX", revision);
+
+  /* Revision A */
+  uint8_t glck = GCLK_GENERATOR_1;
+
+  if (revision == 0) {
+    /* GLCK5 is used for null series */
+    glck = GCLK_GENERATOR_5;
+  }
 
   struct system_pinmux_config mux_conf;
   system_pinmux_get_config_defaults(&mux_conf);
@@ -870,12 +880,12 @@ configure_tc(void)
   gclk_config.division_factor = 1;
   gclk_config.run_in_standby = false;
   gclk_config.output_enable = false;
-  system_gclk_gen_set_config(GCLK_GENERATOR_5, &gclk_config);
-  system_gclk_gen_enable(GCLK_GENERATOR_5);
+  system_gclk_gen_set_config(glck, &gclk_config);
+  system_gclk_gen_enable(glck);
 
   struct tc_config config_tc;
   tc_get_config_defaults(&config_tc);
-  config_tc.clock_source = GCLK_GENERATOR_5;
+  config_tc.clock_source = glck;
   config_tc.counter_size = TC_COUNTER_SIZE_16BIT;
   config_tc.wave_generation = TC_WAVE_GENERATION_NORMAL_PWM;
   config_tc.counter_16_bit.compare_capture_channel[1] = 0xFFFF - (0xFFFF / 100);

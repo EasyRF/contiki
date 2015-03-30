@@ -38,7 +38,8 @@
  */
 
 #include "contiki.h"
-#include <stdio.h>
+//#include <stdio.h>
+#include "log.h"
 
 /*---------------------------------------------------------------------------*/
 PROCESS(hello_world_process, "Hello world process");
@@ -46,9 +47,17 @@ AUTOSTART_PROCESSES(&hello_world_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(hello_world_process, ev, data)
 {
+  static struct etimer et;
+
   PROCESS_BEGIN();
 
-  printf("Hello, world\n");
+  while (1) {
+    etimer_set(&et, 1000);
+
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+
+    INFO("Hello, world");
+  }
 
   PROCESS_END();
 }
