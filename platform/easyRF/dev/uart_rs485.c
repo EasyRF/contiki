@@ -32,7 +32,7 @@ static uart_rx_char_callback char_callback;
 uint16_t rx_char;
 
 static void
-usart_read_callback(const struct usart_module *const usart_module)
+usart_read_callback(struct usart_module *const usart_module)
 {
   ENERGEST_ON(ENERGEST_TYPE_IRQ);
 
