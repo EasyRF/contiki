@@ -945,6 +945,9 @@ init(void)
   /* Install transceiver interrupt handler */
   trx_irq_init(samr21_interrupt_handler);
 
+  /* Enable interrupt */
+  ENABLE_TRX_IRQ();
+
   /* Enable TRX_END interrupt */
   trx_reg_write(IRQ_MASK_REG, (1 << TRX_END) | (1 << RX_START));
 

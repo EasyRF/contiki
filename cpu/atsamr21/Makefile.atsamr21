@@ -62,7 +62,7 @@ CLEAN += symbols.c symbols.h *.d *.elf *.ld *.dfu *.signed SignFirmware.class
 CONTIKI_CPU_DIRS  = . dev
 
 # Define ASF root directory
-ASF_ROOT = $(CONTIKI)/thirdparty/atmel/xdk-asf-3.20.1
+ASF_ROOT = $(CONTIKI)/thirdparty/atmel/xdk-asf-3.24.2
 
 # Thirdparty CMSIS
 CONTIKI_CPU_DIRS += $(ASF_ROOT)/thirdparty/CMSIS/Include
@@ -73,7 +73,11 @@ CONTIKI_CPU_DIRS += $(ASF_ROOT)/thirdparty/CMSIS/Include
 ASF_SAM0_DRIVERS = $(ASF_ROOT)/sam0/drivers
 ### System
 ASF_CPU_SYSTEM = $(ASF_SAM0_DRIVERS)/system
-CONTIKI_CPU_DIRS += $(ASF_CPU_SYSTEM) $(ASF_CPU_SYSTEM)/clock $(ASF_CPU_SYSTEM)/clock/clock_samd21_r21 $(ASF_CPU_SYSTEM)/pinmux $(ASF_CPU_SYSTEM)/interrupt $(ASF_CPU_SYSTEM)/interrupt/system_interrupt_samr21
+CONTIKI_CPU_DIRS += $(ASF_CPU_SYSTEM) $(ASF_CPU_SYSTEM)/clock $(ASF_CPU_SYSTEM)/clock/clock_samd21_r21_da
+CONTIKI_CPU_DIRS += $(ASF_CPU_SYSTEM)/pinmux
+CONTIKI_CPU_DIRS += $(ASF_CPU_SYSTEM)/interrupt $(ASF_CPU_SYSTEM)/interrupt/system_interrupt_samr21
+CONTIKI_CPU_DIRS += $(ASF_CPU_SYSTEM)/power/power_sam_d_r
+CONTIKI_CPU_DIRS += $(ASF_CPU_SYSTEM)/reset/reset_sam_d_r
 CONTIKI_CPU_SOURCEFILES += system.c system_interrupt.c clock.c gclk.c pinmux.c
 ### Port
 CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/port
@@ -88,31 +92,31 @@ CONTIKI_CPU_SOURCEFILES += usart.c usart_interrupt.c
 CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/sercom/spi
 CONTIKI_CPU_SOURCEFILES += spi.c
 #### Sercom I2C
-CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/sercom/i2c $(ASF_SAM0_DRIVERS)/sercom/i2c/i2c_samd21_r21_d10_d11
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/sercom/i2c $(ASF_SAM0_DRIVERS)/sercom/i2c/i2c_sam0
 CONTIKI_CPU_SOURCEFILES += i2c_master.c
 ### RTC count
-CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/rtc
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/rtc $(ASF_SAM0_DRIVERS)/rtc/rtc_sam_d_r
 CONTIKI_CPU_SOURCEFILES += rtc_count.c rtc_count_interrupt.c
 ### WDT
 CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/wdt
 CONTIKI_CPU_SOURCEFILES += wdt.c
 ### EXTINT
-CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/extint
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/extint $(ASF_SAM0_DRIVERS)/extint/extint_sam_d_r
 CONTIKI_CPU_SOURCEFILES += extint.c extint_callback.c
 ### NVM
 CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/nvm
 CONTIKI_CPU_SOURCEFILES += nvm.c
 ### TC
-CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/tc
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/tc $(ASF_SAM0_DRIVERS)/tc/tc_sam_d_r
 CONTIKI_CPU_SOURCEFILES += tc.c tc_interrupt.c
 ### TCC
 CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/tcc
 CONTIKI_CPU_SOURCEFILES += tcc.c
 ### ADC
-CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/adc
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/adc $(ASF_SAM0_DRIVERS)/adc/adc_sam_d_r
 CONTIKI_CPU_SOURCEFILES += adc.c
 ### USB
-CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/usb
+CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/usb $(ASF_SAM0_DRIVERS)/usb/usb_sam_d_r
 CONTIKI_CPU_DIRS += $(ASF_SAM0_DRIVERS)/usb/stack_interface
 CONTIKI_CPU_SOURCEFILES += usb.c usb_device_udd.c usb_dual.c
 ## Utils

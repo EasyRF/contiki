@@ -32,6 +32,7 @@
 #  define CONF_CLOCK_CPU_DIVIDER                  SYSTEM_MAIN_CLOCK_DIV_1
 #  define CONF_CLOCK_APBA_DIVIDER                 SYSTEM_MAIN_CLOCK_DIV_1
 #  define CONF_CLOCK_APBB_DIVIDER                 SYSTEM_MAIN_CLOCK_DIV_1
+#  define CONF_CLOCK_APBC_DIVIDER                 SYSTEM_MAIN_CLOCK_DIV_1
 
 /* SYSTEM_CLOCK_SOURCE_OSC8M configuration - Internal 8MHz oscillator */
 #  define CONF_CLOCK_OSC8M_PRESCALER              SYSTEM_OSC8M_DIV_1
@@ -97,8 +98,14 @@
 #  define CONF_CLOCK_DPLL_FILTER                  SYSTEM_CLOCK_SOURCE_DPLL_FILTER_DEFAULT
 
 #  define CONF_CLOCK_DPLL_REFERENCE_FREQUENCY     32768
-#  define CONF_CLOCK_DPLL_REFEREMCE_DIVIDER       1
+#  define CONF_CLOCK_DPLL_REFERENCE_DIVIDER       1
 #  define CONF_CLOCK_DPLL_OUTPUT_FREQUENCY        48000000
+
+/* DPLL GCLK reference configuration */
+#  define CONF_CLOCK_DPLL_REFERENCE_GCLK_GENERATOR  GCLK_GENERATOR_1
+/* DPLL GCLK lock timer configuration */
+#  define CONF_CLOCK_DPLL_LOCK_GCLK_GENERATOR     GCLK_GENERATOR_1
+
 
 /* Set this to true to configure the GCLK when running clocks_init. If set to
  * false, none of the GCLK generators will be configured in clocks_init(). */
@@ -159,6 +166,13 @@
 #  define CONF_CLOCK_GCLK_7_CLOCK_SOURCE          SYSTEM_CLOCK_SOURCE_OSC8M
 #  define CONF_CLOCK_GCLK_7_PRESCALER             1
 #  define CONF_CLOCK_GCLK_7_OUTPUT_ENABLE         false
+
+/* Configure GCLK generator 8 */
+#  define CONF_CLOCK_GCLK_8_ENABLE                false
+#  define CONF_CLOCK_GCLK_8_RUN_IN_STANDBY        false
+#  define CONF_CLOCK_GCLK_8_CLOCK_SOURCE          SYSTEM_CLOCK_SOURCE_OSC8M
+#  define CONF_CLOCK_GCLK_8_PRESCALER             1
+#  define CONF_CLOCK_GCLK_8_OUTPUT_ENABLE         false
 
 #endif /* CONF_CLOCKS_H_INCLUDED */
 
