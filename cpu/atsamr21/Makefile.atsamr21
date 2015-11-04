@@ -218,7 +218,7 @@ ifndef OPENOCD_BOARD
 endif
 
 %.ocd-upload: %.$(TARGET)
-	$(OPENOCD_PROG) -s $(CONTIKI)/platform/$(TARGET) -f $(OPENOCD_BOARD) -c "init; targets; reset halt; sleep 500; flash probe 0; flash write_image $<; reset halt; resume; sleep 500; shutdown"
+	$(OPENOCD_PROG) -s $(CONTIKI)/platform/$(TARGET) -f $(OPENOCD_BOARD) -c "init; targets; reset halt; flash probe 0; flash write_image $<; reset run; shutdown"
 
 %.gdb-upload: %.$(TARGET)
 	$(GDB) -ex "target remote localhost:3333" -ex "monitor reset halt" -ex "load" -ex "monitor reset" -ex "detach" -ex "quit" $<
